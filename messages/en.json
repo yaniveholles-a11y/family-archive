@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Home",
+    "families": "Families",
+    "people": "People",
+    "search": "Search",
+    "login": "Login"
+  },
+  "home": {
+    "title": "Family Archive",
+    "subtitle": "Preserving memories for future generations",
+    "selectFamily": "Select a family",
+    "enter": "Enter"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "back": "Back",
+    "loading": "Loading..."
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "families": "Familien",
+    "people": "Personen",
+    "search": "Suche",
+    "login": "Anmelden"
+  },
+  "home": {
+    "title": "Familienarchiv",
+    "subtitle": "Erinnerungen für zukünftige Generationen bewahren",
+    "selectFamily": "Familie auswählen",
+    "enter": "Eintreten"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "add": "Hinzufügen",
+    "back": "Zurück",
+    "loading": "Laden..."
+  }
+}

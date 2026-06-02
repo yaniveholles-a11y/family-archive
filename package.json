@@ -1,0 +1,53 @@
+{
+  "name": "family-archive",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@balkangraph/familytree.js": "^1.9.47",
+    "@dagrejs/dagre": "^3.0.0",
+    "@hebcal/core": "^6.5.2",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "@types/dagre": "^0.7.54",
+    "compromise": "^14.15.1",
+    "dagre": "^0.8.5",
+    "elkjs": "^0.11.1",
+    "framer-motion": "^12.40.0",
+    "fuse.js": "^7.3.0",
+    "globe.gl": "^2.31.0",
+    "gsap": "^3.15.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "leaflet": "^1.9.4",
+    "lenis": "^1.3.23",
+    "maplibre-gl": "^4.7.1",
+    "next": "16.2.6",
+    "next-intl": "^4.12.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-masonry-css": "^1.0.16",
+    "reactflow": "^11.11.4",
+    "swiper": "^12.2.0",
+    "tesseract.js": "^7.0.0",
+    "wavesurfer.js": "^7.12.7",
+    "yet-another-react-lightbox": "^3.32.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.12",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.184.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

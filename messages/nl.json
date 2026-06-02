@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Startpagina",
+    "families": "Families",
+    "people": "Mensen",
+    "search": "Zoeken",
+    "login": "Inloggen"
+  },
+  "home": {
+    "title": "Familiearchief",
+    "subtitle": "Herinneringen bewaren voor toekomstige generaties",
+    "selectFamily": "Kies een familie",
+    "enter": "Ga naar"
+  },
+  "common": {
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "edit": "Bewerken",
+    "delete": "Verwijderen",
+    "add": "Toevoegen",
+    "back": "Terug",
+    "loading": "Laden..."
+  }
+}
