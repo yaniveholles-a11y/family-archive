@@ -1,340 +1,385 @@
 'use client'
 import FloatingEditButton from '@/components/FloatingEditButton'
+import { useParams } from 'next/navigation'
 import { useEffect, useState, useRef } from 'react'
-import { supabase, getSession } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
 
 type Story = {
-  id: number; title: string; content: string; excerpt?: string
-  author_person_id?: number; cover_url?: string
-  created_at: string; updated_at: string
-  author?: { first_name: string; last_name: string }
-  tags?: string
-}
-type Person = { id: number; first_name: string; last_name: string }
-
-const S = {
-  bg:'#0d0702', card:'#1e1108', border:'#3a2a10',
-  gold:'#c9a227', goldDim:'#b89a5a', text:'#f5e6c8',
-  inputBg:'#150a01',
+  id: number; title: string; content: string; author?: string
+  created_at?: string; family_id?: number; cover_image?: string
+  family?: { name: string }
 }
 
-// ── Simple rich text toolbar ──────────────────────────────────────────────────
+type User = { id: string; role?: string }
+
+// ── Rich Editor ────────────────────────────────────────────────────────────────
 function RichEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const editorRef = useRef<HTMLDivElement>(null)
+  const divRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value
+    if (divRef.current && divRef.current.innerHTML !== value) {
+      divRef.current.innerHTML = value
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  function exec(cmd: string, val?: string) {
-    document.execCommand(cmd, false, val)
-    editorRef.current?.focus()
-    if (editorRef.current) onChange(editorRef.current.innerHTML)
+  function cmd(command: string, arg?: string) {
+    document.execCommand(command, false, arg)
+    if (divRef.current) onChange(divRef.current.innerHTML)
   }
 
-  const tools = [
-    { label:'B', cmd:'bold', title:'מודגש' },
-    { label:'I', cmd:'italic', title:'נטוי' },
-    { label:'U', cmd:'underline', title:'קו תחתון' },
-    { label:'H2', cmd:'formatBlock', val:'h2', title:'כותרת' },
-    { label:'H3', cmd:'formatBlock', val:'h3', title:'כותרת קטנה' },
-    { label:'¶', cmd:'formatBlock', val:'p', title:'פסקה' },
-    { label:'•', cmd:'insertUnorderedList', title:'רשימה' },
-    { label:'1.', cmd:'insertOrderedList', title:'רשימה ממוספרת' },
-    { label:'—', cmd:'insertHorizontalRule', title:'קו מפריד' },
-  ]
+  const btnStyle = (active?: boolean): React.CSSProperties => ({
+    background: active ? 'rgba(201,162,39,0.2)' : 'transparent',
+    border: '1px solid rgba(201,162,39,0.15)',
+    color: '#c9a227', borderRadius: 6,
+    padding: '0.3rem 0.6rem', cursor: 'pointer',
+    fontSize: '0.85rem', fontFamily: 'monospace',
+    transition: 'all 0.15s',
+  })
 
   return (
-    <div style={{ border:`1px solid ${S.border}`, borderRadius:10, overflow:'hidden' }}>
-      {/* Toolbar */}
-      <div style={{ display:'flex', gap:'2px', padding:'6px 8px', background:'#150a01', borderBottom:`1px solid ${S.border}`, flexWrap:'wrap' }}>
-        {tools.map(t => (
-          <button key={t.cmd + t.label}
-            onMouseDown={e => { e.preventDefault(); exec(t.cmd, t.val) }}
-            title={t.title}
-            style={{
-              background:'none', border:`1px solid ${S.border}`, borderRadius:5,
-              color:S.goldDim, cursor:'pointer', padding:'3px 8px',
-              fontSize: t.label === 'B' ? '14px' : '12px',
-              fontWeight: t.label === 'B' ? 'bold' : 'normal',
-              fontStyle: t.label === 'I' ? 'italic' : 'normal',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#2a1a08'; e.currentTarget.style.color = S.gold }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = S.goldDim }}>
-            {t.label}
-          </button>
-        ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', padding: '0.5rem 0' }}>
+        <button type="button" style={btnStyle()} onClick={() => cmd('bold')} title="Bold"><b>B</b></button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('italic')} title="Italic"><i>I</i></button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('underline')} title="Underline"><u>U</u></button>
+        <div style={{ width: 1, background: 'rgba(201,162,39,0.15)', margin: '0 0.15rem' }} />
+        <button type="button" style={btnStyle()} onClick={() => cmd('formatBlock', 'h3')} title="כותרת">H</button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('insertUnorderedList')} title="רשימה">•</button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('insertOrderedList')} title="רשימה מספרית">1.</button>
+        <div style={{ width: 1, background: 'rgba(201,162,39,0.15)', margin: '0 0.15rem' }} />
+        <button type="button" style={btnStyle()} onClick={() => cmd('justifyRight')} title="ימין">⇒</button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('justifyCenter')} title="מרכז">↔</button>
+        <button type="button" style={btnStyle()} onClick={() => cmd('removeFormat')} title="נקה">✕</button>
       </div>
-
-      {/* Content editable */}
       <div
-        ref={editorRef}
+        ref={divRef}
         contentEditable
         suppressContentEditableWarning
-        onInput={() => { if (editorRef.current) onChange(editorRef.current.innerHTML) }}
         dir="rtl"
+        onInput={() => { if (divRef.current) onChange(divRef.current.innerHTML) }}
         style={{
-          minHeight:280, padding:'1rem', outline:'none',
-          color:S.text, fontSize:'0.95rem', lineHeight:1.9,
-          background:S.inputBg, direction:'rtl',
+          minHeight: 200, background: 'rgba(13,7,2,0.8)',
+          border: '1px solid rgba(201,162,39,0.15)', borderRadius: 10,
+          padding: '0.9rem 1rem', color: '#f0e8d0', fontSize: '0.93rem',
+          lineHeight: 1.8, outline: 'none', direction: 'rtl',
+          fontFamily: '"Heebo", Arial, sans-serif',
         }}
       />
-
-      <style>{`
-        [contenteditable] h2 { color:#f5d98b; font-size:1.3rem; margin:0.75rem 0 0.4rem; }
-        [contenteditable] h3 { color:#c9a227; font-size:1.1rem; margin:0.6rem 0 0.3rem; }
-        [contenteditable] p  { margin:0.4rem 0; }
-        [contenteditable] ul,[contenteditable] ol { padding-right:1.5rem; }
-        [contenteditable] li { margin:0.25rem 0; }
-        [contenteditable] hr { border:none; border-top:1px solid #3a2a10; margin:1rem 0; }
-        [contenteditable]:empty:before { content:attr(placeholder); color:#3a2a10; }
-      `}</style>
     </div>
   )
 }
 
-// ── Story card ────────────────────────────────────────────────────────────────
-function StoryCard({ story, onEdit, onDelete, canEdit }: {
-  story: Story; onEdit: () => void; onDelete: () => void; canEdit: boolean
+// ── Story Editor Modal ─────────────────────────────────────────────────────────
+function StoryEditor({
+  story, onClose, onSaved, locale,
+}: {
+  story: Partial<Story> | null
+  onClose: () => void
+  onSaved: () => void
+  locale: string
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const date = new Date(story.created_at).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' })
+  const [title, setTitle] = useState(story?.title || '')
+  const [content, setContent] = useState(story?.content || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  // Strip HTML and decode entities for excerpt
-  const decodeHtml = (html: string) => {
-    const txt = html.replace(/<[^>]+>/g, '')
-    const el = typeof document !== 'undefined' ? document.createElement('textarea') : null
-    if (el) { el.innerHTML = txt; return el.value }
-    return txt.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+  async function save() {
+    if (!title.trim()) { setError('חובה למלא כותרת'); return }
+    setSaving(true); setError('')
+    const payload = { title: title.trim(), content }
+    const { error: e } = story?.id
+      ? await supabase.from('stories').update(payload).eq('id', story.id)
+      : await supabase.from('stories').insert(payload)
+    if (e) { setError(e.message); setSaving(false); return }
+    onSaved()
   }
-  const plainText = decodeHtml(story.content).substring(0, 200)
+
+  const inp: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box' as const,
+    background: 'rgba(13,7,2,0.8)', border: '1px solid rgba(201,162,39,0.2)',
+    borderRadius: 10, padding: '0.7rem 1rem',
+    color: '#f0e8d0', fontSize: '0.95rem',
+    fontFamily: '"Heebo", Arial, sans-serif', outline: 'none',
+  }
 
   return (
-    <div style={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:14, overflow:'hidden', transition:'border-color .15s' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = S.gold)}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = S.border)}>
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '2rem',
+      }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+        transition={{ type: 'spring', damping: 20 }}
+        style={{
+          background: 'rgba(16,10,4,0.97)',
+          border: '1px solid rgba(201,162,39,0.25)',
+          borderRadius: 18, padding: '2rem', width: '100%', maxWidth: 680,
+          maxHeight: '90vh', overflowY: 'auto',
+          backdropFilter: 'blur(20px)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', color: '#f5d98b', fontSize: '1.3rem' }}>
+            {story?.id ? 'עריכת סיפור' : 'סיפור חדש'}
+          </h2>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: 'none', color: '#3a2a10',
+            fontSize: '1.3rem', cursor: 'pointer',
+          }}>✕</button>
+        </div>
 
-      {/* Cover image */}
-      {story.cover_url && (
-        <img src={story.cover_url} style={{ width:'100%', height:200, objectFit:'cover', display:'block' }} />
-      )}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+              style={{ background: 'rgba(58,16,16,0.8)', borderRadius: 8, padding: '0.65rem 1rem', color: '#f5a5a5', fontSize: '0.85rem', marginBottom: '1rem', overflow: 'hidden' }}>
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <div style={{ padding:'1.25rem' }}>
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8, gap:'0.5rem' }}>
-          <h2 style={{ color:'#f5d98b', fontSize:'1.2rem', margin:0, flex:1 }}>{story.title}</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: '#b89a5a', marginBottom: '0.4rem' }}>כותרת *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="כותרת הסיפור" style={inp}
+              onFocus={e => (e.target.style.borderColor = 'rgba(201,162,39,0.5)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(201,162,39,0.2)')} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: '#b89a5a', marginBottom: '0.4rem' }}>תוכן</label>
+            <RichEditor value={content} onChange={setContent} />
+          </div>
+          <motion.button onClick={save} disabled={saving}
+            whileHover={{ scale: saving ? 1 : 1.02 }} whileTap={{ scale: saving ? 1 : 0.97 }}
+            style={{
+              background: saving ? 'rgba(90,74,16,0.5)' : 'linear-gradient(135deg, #c9a227, #a68520)',
+              color: '#0d0702', border: 'none', borderRadius: 12,
+              padding: '0.85rem', fontWeight: 700, fontSize: '0.95rem',
+              fontFamily: '"Heebo", Arial, sans-serif', cursor: saving ? 'not-allowed' : 'pointer',
+            }}>
+            {saving ? 'שומר...' : story?.id ? 'שמור שינויים' : 'פרסם סיפור'}
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ── Story Card ─────────────────────────────────────────────────────────────────
+function StoryCard({ story, locale, canEdit, onEdit, onDelete }: {
+  story: Story; locale: string; canEdit: boolean
+  onEdit: () => void; onDelete: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const preview = story.content.replace(/<[^>]+>/g, '').substring(0, 180)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: 'rgba(26,15,5,0.8)', border: '1px solid rgba(201,162,39,0.1)',
+        borderRadius: 14, overflow: 'hidden',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.border = '1px solid rgba(201,162,39,0.25)')}
+      onMouseLeave={e => (e.currentTarget.style.border = '1px solid rgba(201,162,39,0.1)')}
+    >
+      <div style={{ padding: '1.25rem 1.4rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontFamily: '"Playfair Display", serif', color: '#f5d98b', fontSize: '1.1rem', marginBottom: '0.4rem' }}>
+              {story.title}
+            </h3>
+            {(story.author || story.created_at) && (
+              <div style={{ fontSize: '0.72rem', color: '#3a2a10', marginBottom: '0.6rem' }}>
+                {story.author && <span>✍️ {story.author}</span>}
+                {story.created_at && <span style={{ marginRight: '0.5rem' }}>· {story.created_at.substring(0, 10).split('-').reverse().join('/')}</span>}
+                {story.family?.name && <span style={{ marginRight: '0.5rem', color: '#c9a227' }}>· 🏛️ {story.family.name}</span>}
+              </div>
+            )}
+          </div>
           {canEdit && (
-            <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
-              <button onClick={onEdit} style={{ background:'none', border:`1px solid ${S.border}`, borderRadius:6, color:S.goldDim, cursor:'pointer', padding:'3px 8px', fontSize:'0.75rem' }}>✏️</button>
-              <button onClick={onDelete} style={{ background:'none', border:'1px solid #3a1010', borderRadius:6, color:'#8a3a3a', cursor:'pointer', padding:'3px 8px', fontSize:'0.75rem' }}>✕</button>
+            <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+              <button onClick={onEdit} style={{ background: 'rgba(201,162,39,0.1)', border: '1px solid rgba(201,162,39,0.2)', color: '#c9a227', borderRadius: 7, padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.78rem' }}>עריכה</button>
+              <button onClick={onDelete} style={{ background: 'rgba(200,80,80,0.08)', border: '1px solid rgba(200,80,80,0.2)', color: '#f5a5a5', borderRadius: 7, padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.78rem' }}>מחיקה</button>
             </div>
           )}
         </div>
 
-        {/* Meta */}
-        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:10, flexWrap:'wrap' }}>
-          {story.author && (
-            <span style={{ fontSize:'0.78rem', color:S.gold }}>
-              ✍️ {story.author.first_name} {story.author.last_name}
-            </span>
+        <AnimatePresence mode="wait">
+          {!expanded ? (
+            <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <p style={{ color: '#b89a5a', fontSize: '0.87rem', lineHeight: 1.7, margin: '0 0 0.75rem' }}>
+                {preview}{story.content.replace(/<[^>]+>/g, '').length > 180 && '...'}
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div key="full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div
+                dangerouslySetInnerHTML={{ __html: story.content }}
+                style={{ color: '#c8b08a', fontSize: '0.9rem', lineHeight: 1.85 }}
+              />
+            </motion.div>
           )}
-          <span style={{ fontSize:'0.75rem', color:'#5a3a1a' }}>📅 {date}</span>
-          {story.tags && story.tags.split(',').map(tag => (
-            <span key={tag} style={{ fontSize:'0.7rem', background:'#2a1a08', border:`1px solid ${S.border}`, borderRadius:20, padding:'1px 8px', color:S.goldDim }}>
-              #{tag.trim()}
-            </span>
-          ))}
-        </div>
+        </AnimatePresence>
 
-        {/* Content */}
-        {expanded
-          ? <div dir="rtl" style={{ color:S.text, fontSize:'0.93rem', lineHeight:1.9 }} dangerouslySetInnerHTML={{ __html: story.content }} />
-          : <p style={{ color:'#c8b08a', fontSize:'0.88rem', lineHeight:1.7, margin:'0 0 8px' }}>{plainText}{plainText.length >= 200 ? '...' : ''}</p>
-        }
-
-        <button onClick={() => setExpanded(e => !e)}
-          style={{ background:'none', border:'none', color:S.gold, cursor:'pointer', fontSize:'0.82rem', padding:'4px 0', textDecoration:'underline' }}>
-          {expanded ? 'הסתר ↑' : 'קרא עוד →'}
+        <button onClick={() => setExpanded(!expanded)}
+          style={{
+            background: 'transparent', border: 'none', color: '#c9a227',
+            cursor: 'pointer', fontSize: '0.8rem', padding: 0,
+            fontFamily: '"Heebo", Arial, sans-serif',
+          }}>
+          {expanded ? '▲ סגור' : '▼ קרא עוד'}
         </button>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
-// ── Editor modal ──────────────────────────────────────────────────────────────
-function StoryEditor({ story, people, onSave, onClose }: {
-  story?: Partial<Story>; people: Person[]
-  onSave: (s: Partial<Story>) => Promise<void>; onClose: () => void
-}) {
-  const [form, setForm] = useState({
-    title: story?.title || '',
-    content: story?.content || '',
-    author_person_id: story?.author_person_id || '',
-    tags: story?.tags || '',
-    cover_url: story?.cover_url || '',
-  })
-  const [saving, setSaving] = useState(false)
+// ── Main Page ──────────────────────────────────────────────────────────────────
+export default function StoriesPage() {
+  const { locale } = useParams() as { locale: string }
+  const [stories, setStories] = useState<Story[]>([])
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [editing, setEditing] = useState<Partial<Story> | null | false>(false)
+  const [filter, setFilter] = useState('')
 
-  async function save() {
-    if (!form.title.trim()) return
-    setSaving(true)
-    await onSave({ ...form, author_person_id: form.author_person_id ? Number(form.author_person_id) : undefined })
-    setSaving(false)
+  useEffect(() => { load(); checkUser() }, [])
+
+  async function checkUser() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      const { data: profile } = await supabase.from('users').select('role').eq('id', session.user.id).single()
+      setUser({ id: session.user.id, role: profile?.role })
+    }
   }
 
-  const inp = (extra?: object) => ({
-    style: { width:'100%', background:S.inputBg, border:`1px solid ${S.border}`, borderRadius:8, padding:'0.55rem 0.8rem', color:S.text, fontSize:'0.9rem', direction:'rtl' as const, boxSizing:'border-box' as const, ...extra },
-  })
-
-  return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position:'fixed', inset:0, background:'#000000aa', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem', overflowY:'auto' }}>
-      <div dir="rtl" style={{ background:'#1a0f05', border:`1px solid ${S.gold}`, borderRadius:16, padding:'1.5rem', width:'100%', maxWidth:700, position:'relative', boxShadow:'0 8px 40px #000000bb', fontFamily:'Arial', maxHeight:'90vh', overflowY:'auto' }}>
-        <button onClick={onClose} style={{ position:'absolute', top:'0.75rem', left:'0.75rem', background:'none', border:'none', color:S.goldDim, cursor:'pointer', fontSize:'1.1rem' }}>✕</button>
-        <h2 style={{ color:'#f5d98b', fontSize:'1.2rem', margin:'0 0 1.25rem' }}>{story?.id ? 'עריכת סיפור' : 'סיפור חדש'}</h2>
-
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.9rem' }}>
-          <input {...inp()} placeholder="כותרת הסיפור *" value={form.title} onChange={e => setForm(f => ({ ...f, title:e.target.value }))} />
-
-          <div style={{ display:'flex', gap:'0.75rem', flexWrap:'wrap' }}>
-            <select {...inp({ flex:1, minWidth:160 })} value={form.author_person_id} onChange={e => setForm(f => ({ ...f, author_person_id:e.target.value }))}>
-              <option value="">✍️ בחר כותב/ת (אופציונלי)</option>
-              {people.map(p => <option key={p.id} value={p.id}>{[p.first_name, p.last_name].filter(Boolean).join(" ")}</option>)}
-            </select>
-            <input {...inp({ flex:1, minWidth:160 })} placeholder="תגיות (מופרדות בפסיק)" value={form.tags} onChange={e => setForm(f => ({ ...f, tags:e.target.value }))} />
-          </div>
-
-          <input {...inp()} placeholder="קישור לתמונת שער (URL, אופציונלי)" value={form.cover_url} onChange={e => setForm(f => ({ ...f, cover_url:e.target.value }))} />
-
-          <div>
-            <div style={{ fontSize:'0.75rem', color:S.goldDim, marginBottom:6 }}>תוכן הסיפור</div>
-            <RichEditor value={form.content} onChange={v => setForm(f => ({ ...f, content:v }))} />
-          </div>
-
-          <div style={{ display:'flex', gap:'0.5rem', justifyContent:'flex-end' }}>
-            <button onClick={onClose} style={{ background:'transparent', border:`1px solid ${S.border}`, borderRadius:8, color:S.goldDim, padding:'0.55rem 1.1rem', cursor:'pointer', fontSize:'0.88rem' }}>ביטול</button>
-            <button onClick={save} disabled={saving || !form.title.trim()}
-              style={{ background:S.gold, color:'#0d0702', border:'none', borderRadius:8, padding:'0.55rem 1.25rem', cursor:'pointer', fontWeight:'bold', fontSize:'0.88rem', opacity: saving || !form.title.trim() ? 0.6 : 1 }}>
-              {saving ? 'שומר...' : '💾 שמור סיפור'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-export default function StoriesPage() {
-  const [stories, setStories] = useState<Story[]>([])
-  const [people, setPeople]   = useState<Person[]>([])
-  const [loading, setLoading] = useState(true)
-  const [canEdit, setCanEdit] = useState(false)
-  const [showEditor, setShowEditor] = useState(false)
-  const [editStory, setEditStory]   = useState<Partial<Story> | undefined>()
-  const [search, setSearch]         = useState('')
-  const router = useRouter()
-
-  useEffect(() => {
-    async function init() {
-      const session = await getSession()
-      if (!session) { router.push('/login'); return }
-      const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id).maybeSingle()
-      setCanEdit(roleData?.role === 'admin' || roleData?.role === 'editor')
-      const { data: ppl } = await supabase.from('people').select('id,first_name,last_name').order('last_name')
-      setPeople(ppl || [])
-      await loadStories()
-    }
-    init()
-  }, [router])
-
-  async function loadStories() {
+  async function load() {
     const { data } = await supabase
       .from('stories')
-      .select('*, author:author_person_id(first_name, last_name)')
+      .select('*, family:families(name)')
       .order('created_at', { ascending: false })
     setStories(data || [])
     setLoading(false)
   }
 
-  async function saveStory(form: Partial<Story>) {
-    if (editStory?.id) {
-      await supabase.from('stories').update({ ...form, updated_at: new Date().toISOString() }).eq('id', editStory.id)
-    } else {
-      await supabase.from('stories').insert({ ...form })
-    }
-    setShowEditor(false); setEditStory(undefined)
-    loadStories()
-  }
-
-  async function deleteStory(id: number) {
-    if (!confirm('למחוק את הסיפור?')) return
+  async function handleDelete(id: number) {
+    if (!confirm('האם למחוק את הסיפור?')) return
     await supabase.from('stories').delete().eq('id', id)
-    loadStories()
+    load()
   }
 
-  function openNew() { setEditStory(undefined); setShowEditor(true) }
-  function openEdit(story: Story) { setEditStory(story); setShowEditor(true) }
-
-  const filtered = stories.filter(s =>
-    !search ||
-    s.title.includes(search) ||
-    (s.author ? `${s.author.first_name} ${s.author.last_name}` : '').includes(search) ||
-    (s.tags || '').includes(search)
-  )
+  const canEdit = user?.role === 'admin' || user?.role === 'editor'
+  const filtered = filter
+    ? stories.filter(s => s.title.includes(filter) || s.content.replace(/<[^>]+>/g, '').includes(filter))
+    : stories
 
   return (
-    <main dir="rtl" style={{ minHeight:'100vh', background:S.bg, color:S.text, fontFamily:'Arial, sans-serif' }}>
-      <div style={{ maxWidth:800, margin:'0 auto', padding:'1.5rem' }}>
+    <main dir="rtl" style={{ minHeight: '100vh', background: '#080606', color: '#f0e8d0', fontFamily: '"Heebo", Arial, sans-serif' }}>
 
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.5rem', flexWrap:'wrap', gap:'0.75rem' }}>
-          <h1 style={{ fontSize:'1.6rem', color:'#f5d98b', margin:0 }}>📝 סיפורי המשפחה</h1>
-          {canEdit && (
-            <button onClick={openNew}
-              style={{ background:S.gold, color:'#0d0702', border:'none', borderRadius:8, padding:'0.5rem 1.1rem', cursor:'pointer', fontWeight:'bold', fontSize:'0.88rem' }}>
-              + כתוב סיפור חדש
-            </button>
-          )}
+      {/* Header */}
+      <div style={{
+        background: 'rgba(8,6,6,0.95)', backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(201,162,39,0.12)',
+        padding: '1.75rem 2rem 1.5rem',
+      }}>
+        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '0.6rem' }}>
+                <a href={`/${locale}`} style={{ color: '#3a2a10', fontSize: '0.82rem', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#c9a227')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#3a2a10')}>← בית</a>
+                <span style={{ color: '#1a0f05' }}>·</span>
+                <span style={{ color: '#f5d98b', fontSize: '0.85rem' }}>📖 סיפורים</span>
+              </div>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.75rem', color: '#f5d98b' }}>
+                סיפורי המשפחה
+              </h1>
+            </div>
+            {canEdit && (
+              <motion.button onClick={() => setEditing({})}
+                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                style={{
+                  background: 'linear-gradient(135deg, #c9a227, #a68520)',
+                  color: '#0d0702', border: 'none', borderRadius: 10,
+                  padding: '0.6rem 1.25rem', fontWeight: 700, fontSize: '0.88rem',
+                  fontFamily: '"Heebo", Arial, sans-serif', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                }}>+ סיפור חדש</motion.button>
+            )}
+          </div>
+
+          <div style={{ marginTop: '1rem', position: 'relative' }}>
+            <span style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', color: '#3a2a10', pointerEvents: 'none' }}>🔍</span>
+            <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="חפש סיפור..."
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'rgba(13,7,2,0.7)', border: '1px solid rgba(201,162,39,0.12)',
+                borderRadius: 10, padding: '0.6rem 2rem 0.6rem 1rem',
+                color: '#f0e8d0', fontSize: '0.88rem', fontFamily: '"Heebo", Arial, sans-serif',
+                outline: 'none', direction: 'rtl',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(201,162,39,0.4)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(201,162,39,0.12)')}
+            />
+          </div>
         </div>
-        <div style={{ width:60, height:2, background:S.gold, marginBottom:'1.25rem' }} />
+      </div>
 
-        {/* Search */}
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 חפש לפי כותרת, כותב/ת או תגית..."
-          style={{ width:'100%', background:S.card, border:`1px solid ${S.border}`, borderRadius:8, padding:'0.6rem 0.9rem', color:S.text, fontSize:'0.9rem', direction:'rtl', marginBottom:'1.5rem', boxSizing:'border-box' }} />
-
-        {loading && <div style={{ textAlign:'center', padding:'4rem', color:S.goldDim }}>טוען סיפורים...</div>}
+      <div style={{ maxWidth: 820, margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+              style={{ fontSize: '2rem', color: '#c9a227' }}>✦</motion.div>
+          </div>
+        )}
 
         {!loading && filtered.length === 0 && (
-          <div style={{ textAlign:'center', padding:'4rem', color:S.goldDim }}>
-            <div style={{ fontSize:'3rem', marginBottom:12 }}>📝</div>
-            <p>{search ? 'לא נמצאו סיפורים' : 'אין סיפורים עדיין'}</p>
-            {canEdit && !search && (
-              <button onClick={openNew}
-                style={{ marginTop:'1rem', background:S.gold, color:'#0d0702', border:'none', borderRadius:8, padding:'0.6rem 1.4rem', cursor:'pointer', fontWeight:'bold' }}>
-                כתוב את הסיפור הראשון
-              </button>
+          <div style={{ textAlign: 'center', padding: '4rem', color: '#3a2a10' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📖</div>
+            <div>{filter ? 'לא נמצאו סיפורים' : 'אין סיפורים עדיין'}</div>
+            {canEdit && !filter && (
+              <button onClick={() => setEditing({})}
+                style={{
+                  marginTop: '1.5rem', background: 'rgba(201,162,39,0.12)',
+                  border: '1px solid rgba(201,162,39,0.25)', color: '#c9a227',
+                  borderRadius: 10, padding: '0.65rem 1.5rem', cursor: 'pointer',
+                  fontFamily: '"Heebo", Arial, sans-serif', fontSize: '0.9rem',
+                }}>+ כתוב את הסיפור הראשון</button>
             )}
           </div>
         )}
 
-        <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-          {filtered.map(s => (
-            <StoryCard key={s.id} story={s} canEdit={canEdit}
-              onEdit={() => openEdit(s)}
-              onDelete={() => deleteStory(s.id)} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {filtered.map(story => (
+            <StoryCard key={story.id} story={story} locale={locale} canEdit={canEdit}
+              onEdit={() => setEditing(story)}
+              onDelete={() => handleDelete(story.id)} />
           ))}
         </div>
       </div>
 
-      {showEditor && (
-        <StoryEditor story={editStory} people={people} onSave={saveStory} onClose={() => { setShowEditor(false); setEditStory(undefined) }} />
-      )}
-    <FloatingEditButton editPath="stories-edit" />
+      {/* Editor Modal */}
+      <AnimatePresence>
+        {editing !== false && (
+          <StoryEditor
+            story={editing || null}
+            locale={locale}
+            onClose={() => setEditing(false)}
+            onSaved={() => { setEditing(false); load() }}
+          />
+        )}
+      </AnimatePresence>
+
+      <FloatingEditButton editPath="stories-edit" />
     </main>
   )
 }

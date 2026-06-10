@@ -1,0 +1,22 @@
+{
+  "name": "ארכיון המשפחה",
+  "short_name": "ארכיון",
+  "description": "ארכיון משפחתי דיגיטלי — תמונות, סיפורים, ועץ משפחה",
+  "start_url": "/he",
+  "display": "standalone",
+  "background_color": "#080606",
+  "theme_color": "#c9a227",
+  "orientation": "portrait-primary",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["lifestyle", "social"],
+  "shortcuts": [
+    { "name": "משפחות", "url": "/he/families", "description": "רשימת משפחות" },
+    { "name": "תמונות", "url": "/he/gallery", "description": "גלריית תמונות" },
+    { "name": "ציר זמן", "url": "/he/timeline", "description": "ציר זמן היסטורי" }
+  ]
+}

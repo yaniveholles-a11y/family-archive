@@ -3,14 +3,29 @@
     "home": "Home",
     "families": "Families",
     "people": "People",
+    "tree": "Tree",
+    "map": "Journeys",
+    "timeline": "Timeline",
+    "gallery": "Gallery",
+    "stories": "Stories",
+    "calendar": "Calendar",
+    "feed": "Memories",
+    "ai": "AI Assistant",
+    "book": "Book",
+    "documents": "Documents",
     "search": "Search",
-    "login": "Login"
+    "login": "Login",
+    "more": "More"
   },
   "home": {
     "title": "Family Archive",
     "subtitle": "Preserving memories for future generations",
     "selectFamily": "Select a family",
-    "enter": "Enter"
+    "enter": "Enter",
+    "stats_families": "Families",
+    "stats_people": "Family members",
+    "stats_photos": "Photos",
+    "stats_stories": "Stories"
   },
   "common": {
     "save": "Save",
@@ -19,6 +34,107 @@
     "delete": "Delete",
     "add": "Add",
     "back": "Back",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "search": "Search",
+    "close": "Close",
+    "open": "Open",
+    "upload": "Upload",
+    "download": "Download",
+    "share": "Share",
+    "print": "Print"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "join": "Request access",
+    "email": "Email",
+    "password": "Password",
+    "continue_google": "Continue with Google",
+    "or_email": "or with email",
+    "wrong_credentials": "Invalid email or password",
+    "join_sent": "Request sent!",
+    "join_pending": "Admin will review your request"
+  },
+  "people": {
+    "title": "Family members",
+    "add": "Add person",
+    "born": "Born",
+    "died": "Died",
+    "age": "Age",
+    "family": "Family",
+    "biography": "Biography"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "filter": "Filter",
+    "all": "All",
+    "birth": "Birth",
+    "death": "Death",
+    "marriage": "Marriage",
+    "immigration": "Immigration",
+    "event": "Event",
+    "historical_context": "Historical context"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "colorize": "Colorize",
+    "before": "Before",
+    "after": "After",
+    "upload": "Upload photo",
+    "no_photos": "No photos yet"
+  },
+  "documents": {
+    "title": "Documents",
+    "scan": "Scan document",
+    "ocr": "Text recognition",
+    "birth_certificate": "Birth certificate",
+    "death_certificate": "Death certificate",
+    "marriage_certificate": "Marriage certificate",
+    "passport": "Passport",
+    "letter": "Letter",
+    "photo": "Photo",
+    "other": "Other"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "yahrzeit": "Yahrzeit",
+    "birthday": "Birthday",
+    "anniversary": "Anniversary",
+    "upcoming": "Next 30 days",
+    "hebrew_date": "Hebrew date",
+    "view_month": "Month",
+    "view_list": "List"
+  },
+  "feed": {
+    "title": "Shared memories",
+    "post": "Post",
+    "no_memories": "No memories yet",
+    "share_memory": "Share a memory...",
+    "reactions": "Reactions"
+  },
+  "ai": {
+    "title": "Family AI Assistant",
+    "placeholder": "Ask about the family...",
+    "send": "Send",
+    "thinking": "Thinking..."
+  },
+  "map": {
+    "title": "Family journey",
+    "migration_trail": "Migration trail",
+    "loading": "Loading globe..."
+  },
+  "pdf": {
+    "title": "Export family book",
+    "select_people": "Select family members",
+    "generate": "Generate PDF",
+    "generating": "Generating...",
+    "download": "Download PDF"
+  },
+  "offline": {
+    "title": "No internet connection",
+    "message": "It looks like you are offline. Some content may still be available.",
+    "retry": "Try again"
   }
 }

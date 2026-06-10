@@ -3,14 +3,29 @@
     "home": "Startpagina",
     "families": "Families",
     "people": "Mensen",
+    "tree": "Stamboom",
+    "map": "Reizen",
+    "timeline": "Tijdlijn",
+    "gallery": "Galerij",
+    "stories": "Verhalen",
+    "calendar": "Kalender",
+    "feed": "Herinneringen",
+    "ai": "AI Assistent",
+    "book": "Boek",
+    "documents": "Documenten",
     "search": "Zoeken",
-    "login": "Inloggen"
+    "login": "Inloggen",
+    "more": "Meer"
   },
   "home": {
     "title": "Familiearchief",
     "subtitle": "Herinneringen bewaren voor toekomstige generaties",
     "selectFamily": "Kies een familie",
-    "enter": "Ga naar"
+    "enter": "Ga naar",
+    "stats_families": "Families",
+    "stats_people": "Familieleden",
+    "stats_photos": "Foto's",
+    "stats_stories": "Verhalen"
   },
   "common": {
     "save": "Opslaan",
@@ -19,6 +34,107 @@
     "delete": "Verwijderen",
     "add": "Toevoegen",
     "back": "Terug",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "error": "Fout",
+    "success": "Succes",
+    "search": "Zoeken",
+    "close": "Sluiten",
+    "open": "Openen",
+    "upload": "Uploaden",
+    "download": "Downloaden",
+    "share": "Delen",
+    "print": "Afdrukken"
+  },
+  "auth": {
+    "login": "Inloggen",
+    "logout": "Uitloggen",
+    "join": "Toegang aanvragen",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "continue_google": "Doorgaan met Google",
+    "or_email": "of met e-mail",
+    "wrong_credentials": "Ongeldig e-mailadres of wachtwoord",
+    "join_sent": "Verzoek verzonden!",
+    "join_pending": "De beheerder beoordeelt uw verzoek"
+  },
+  "people": {
+    "title": "Familieleden",
+    "add": "Persoon toevoegen",
+    "born": "Geboren",
+    "died": "Gestorven",
+    "age": "Leeftijd",
+    "family": "Familie",
+    "biography": "Biografie"
+  },
+  "timeline": {
+    "title": "Tijdlijn",
+    "filter": "Filter",
+    "all": "Alles",
+    "birth": "Geboorte",
+    "death": "Overlijden",
+    "marriage": "Huwelijk",
+    "immigration": "Migratie",
+    "event": "Evenement",
+    "historical_context": "Historische context"
+  },
+  "gallery": {
+    "title": "Galerij",
+    "colorize": "Inkleuren",
+    "before": "Voor",
+    "after": "Na",
+    "upload": "Foto uploaden",
+    "no_photos": "Nog geen foto's"
+  },
+  "documents": {
+    "title": "Documenten",
+    "scan": "Document scannen",
+    "ocr": "Tekstherkenning",
+    "birth_certificate": "Geboorteakte",
+    "death_certificate": "Overlijdensakte",
+    "marriage_certificate": "Huwelijksakte",
+    "passport": "Paspoort",
+    "letter": "Brief",
+    "photo": "Foto",
+    "other": "Overig"
+  },
+  "calendar": {
+    "title": "Kalender",
+    "yahrzeit": "Jahrzeit",
+    "birthday": "Verjaardag",
+    "anniversary": "Trouwdag",
+    "upcoming": "Komende 30 dagen",
+    "hebrew_date": "Hebreeuwse datum",
+    "view_month": "Maand",
+    "view_list": "Lijst"
+  },
+  "feed": {
+    "title": "Gedeelde herinneringen",
+    "post": "Plaatsen",
+    "no_memories": "Nog geen herinneringen",
+    "share_memory": "Deel een herinnering...",
+    "reactions": "Reacties"
+  },
+  "ai": {
+    "title": "Familie AI Assistent",
+    "placeholder": "Vraag over de familie...",
+    "send": "Versturen",
+    "thinking": "Denkt na..."
+  },
+  "map": {
+    "title": "Familiereis",
+    "migration_trail": "Migratiepad",
+    "loading": "Globe laden..."
+  },
+  "pdf": {
+    "title": "Familieboek exporteren",
+    "select_people": "Selecteer familieleden",
+    "generate": "PDF genereren",
+    "generating": "Genereren...",
+    "download": "PDF downloaden"
+  },
+  "offline": {
+    "title": "Geen internetverbinding",
+    "message": "Het lijkt erop dat u offline bent. Sommige inhoud is mogelijk nog beschikbaar.",
+    "retry": "Opnieuw proberen"
   }
 }

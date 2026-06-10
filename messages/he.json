@@ -3,14 +3,29 @@
     "home": "דף הבית",
     "families": "משפחות",
     "people": "אנשים",
+    "tree": "עץ",
+    "map": "מסעות",
+    "timeline": "ציר זמן",
+    "gallery": "גלריה",
+    "stories": "סיפורים",
+    "calendar": "לוח שנה",
+    "feed": "זיכרונות",
+    "ai": "עוזר AI",
+    "book": "ספר",
+    "documents": "מסמכים",
     "search": "חיפוש",
-    "login": "כניסה"
+    "login": "כניסה",
+    "more": "עוד"
   },
   "home": {
     "title": "ארכיון המשפחות",
     "subtitle": "שומרים על הזיכרון לדורות הבאים",
     "selectFamily": "בחר משפחה",
-    "enter": "כניסה"
+    "enter": "כניסה",
+    "stats_families": "משפחות",
+    "stats_people": "בני משפחה",
+    "stats_photos": "תמונות",
+    "stats_stories": "סיפורים"
   },
   "common": {
     "save": "שמור",
@@ -19,6 +34,107 @@
     "delete": "מחיקה",
     "add": "הוספה",
     "back": "חזרה",
-    "loading": "טוען..."
+    "loading": "טוען...",
+    "error": "שגיאה",
+    "success": "הצלחה",
+    "search": "חיפוש",
+    "close": "סגור",
+    "open": "פתח",
+    "upload": "העלאה",
+    "download": "הורדה",
+    "share": "שיתוף",
+    "print": "הדפסה"
+  },
+  "auth": {
+    "login": "כניסה למערכת",
+    "logout": "יציאה",
+    "join": "בקשת הצטרפות",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "continue_google": "המשך עם Google",
+    "or_email": "או עם אימייל",
+    "wrong_credentials": "אימייל או סיסמה שגויים",
+    "join_sent": "הבקשה נשלחה!",
+    "join_pending": "המנהל יאשר את בקשתך"
+  },
+  "people": {
+    "title": "בני המשפחה",
+    "add": "הוסף אדם",
+    "born": "נולד",
+    "died": "נפטר",
+    "age": "גיל",
+    "family": "משפחה",
+    "biography": "ביוגרפיה"
+  },
+  "timeline": {
+    "title": "ציר זמן",
+    "filter": "סנן",
+    "all": "הכל",
+    "birth": "לידה",
+    "death": "פטירה",
+    "marriage": "נישואין",
+    "immigration": "הגירה",
+    "event": "אירוע",
+    "historical_context": "הקשר היסטורי"
+  },
+  "gallery": {
+    "title": "גלריה",
+    "colorize": "הוסף צבע",
+    "before": "לפני",
+    "after": "אחרי",
+    "upload": "העלה תמונה",
+    "no_photos": "אין תמונות"
+  },
+  "documents": {
+    "title": "מסמכים",
+    "scan": "סרוק מסמך",
+    "ocr": "זיהוי טקסט",
+    "birth_certificate": "תעודת לידה",
+    "death_certificate": "תעודת פטירה",
+    "marriage_certificate": "תעודת נישואין",
+    "passport": "דרכון",
+    "letter": "מכתב",
+    "photo": "תמונה",
+    "other": "אחר"
+  },
+  "calendar": {
+    "title": "לוח שנה",
+    "yahrzeit": "יארצייט",
+    "birthday": "יום הולדת",
+    "anniversary": "יום נישואין",
+    "upcoming": "30 יום הקרובים",
+    "hebrew_date": "תאריך עברי",
+    "view_month": "חודש",
+    "view_list": "רשימה"
+  },
+  "feed": {
+    "title": "זיכרונות משותפים",
+    "post": "פרסם",
+    "no_memories": "אין זיכרונות עדיין",
+    "share_memory": "שתף זיכרון...",
+    "reactions": "תגובות"
+  },
+  "ai": {
+    "title": "עוזר משפחתי AI",
+    "placeholder": "שאל על המשפחה...",
+    "send": "שלח",
+    "thinking": "חושב..."
+  },
+  "map": {
+    "title": "מסע המשפחה",
+    "migration_trail": "ציר נדידות",
+    "loading": "טוען גלובוס..."
+  },
+  "pdf": {
+    "title": "ייצוא ספר משפחה",
+    "select_people": "בחר בני משפחה",
+    "generate": "צור PDF",
+    "generating": "מייצר...",
+    "download": "הורד PDF"
+  },
+  "offline": {
+    "title": "אין חיבור לאינטרנט",
+    "message": "נראה שאין לך חיבור לאינטרנט. חלק מהתכנים עשויים להיות זמינים בכל מקרה.",
+    "retry": "נסה שוב"
   }
 }

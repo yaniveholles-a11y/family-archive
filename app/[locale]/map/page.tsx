@@ -1,408 +1,268 @@
 'use client'
-import FloatingEditButton from '@/components/FloatingEditButton'
-import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import dynamic from 'next/dynamic'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Icon from '@/components/Icon'
 import { supabase } from '@/lib/supabase'
-import type { GeoPoint, GeoArc } from './GlobeView'
 
-const GlobeView = dynamic(() => import('./GlobeView'), { ssr: false, loading: () => <Loader /> })
-const CityView = dynamic(() => import('./CityView'), { ssr: false })
-const StreetView = dynamic(() => import('./StreetView'), { ssr: false })
-
-function Loader() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-        style={{ fontSize: 40, color: '#c9a227' }}>✦</motion.div>
-      <span style={{ color: '#8b6914', fontSize: 13, fontFamily: '"Heebo", sans-serif' }}>טוען גלוב...</span>
-    </div>
-  )
+type MigrationEvent = {
+  id: number; year: number; person_name: string
+  from_lat?: number; from_lng?: number; from_place?: string
+  to_lat?: number; to_lng?: number; to_place?: string
+  event_type?: string; description?: string; photo_url?: string
 }
 
-type GlobePerson = {
-  id: string; name: string; color: string; symbol: string; visible: boolean
-  tree_person_id?: number; stops?: GlobeStop[]
-}
-type GlobeStop = {
-  id: string; globe_person_id: string; year?: number; is_bce: boolean
-  country?: string; city?: string; address?: string
-  lat?: number; lng?: number; stop_type: string; note?: string; photo_url?: string
-}
-type GlobeRoute = {
-  id: string; globe_person_id: string; from_stop_id: string; to_stop_id: string
-  travel_type: string; note?: string
-}
-type View = 'globe' | 'city' | 'street'
-type CityInfo = { lat: number; lng: number; name: string; people: { id: string; name: string }[] }
+// Fallback data if DB is empty
+const DEMO_EVENTS: MigrationEvent[] = [
+  { id: 1, year: 1905, person_name: 'סבא רבא', from_lat: 52.2, from_lng: 21.0, from_place: 'וורשה', to_lat: 51.5, to_lng: -0.1, to_place: 'לונדון', event_type: 'immigration', description: 'עזיבת פולין לפני הפוגרומים' },
+  { id: 2, year: 1920, person_name: 'סבתא', from_lat: 48.8, from_lng: 2.3, from_place: 'פריז', to_lat: 32.0, to_lng: 34.8, to_place: 'תל אביב', event_type: 'immigration', description: 'עלייה לארץ ישראל' },
+  { id: 3, year: 1948, person_name: 'המשפחה', from_lat: 32.0, from_lng: 34.8, from_place: 'תל אביב', to_lat: 31.7, to_lng: 35.2, to_place: 'ירושלים', event_type: 'migration', description: 'לאחר קום המדינה' },
+  { id: 4, year: 1935, person_name: 'דוד', from_lat: 52.5, from_lng: 13.4, from_place: 'ברלין', to_lat: 32.0, to_lng: 34.8, to_place: 'תל אביב', event_type: 'immigration', description: 'בריחה מגרמניה הנאצית' },
+]
 
-const TRAVEL_COLORS: Record<string, string[]> = {
-  default: ['#ffffffaa','#ffffffaa'], ship: ['#3498DB','#2980B9'],
-  train: ['#888','#666'], exile: ['#E74C3C','#C0392B'],
-  pilgrimage: ['#c9a227','#f5d98b'], captivity: ['#666','#444'],
-  unknown: ['#ffffff22','#ffffff22'], walking: ['#2ECC71','#27AE60'],
-}
-
-export default function MapPage() {
+export default function StoryMapPage() {
   const { locale } = useParams() as { locale: string }
-  const [globePeople, setGlobePeople] = useState<GlobePerson[]>([])
-  const [stops, setStops] = useState<GlobeStop[]>([])
-  const [routes, setRoutes] = useState<GlobeRoute[]>([])
-  const [points, setPoints] = useState<GeoPoint[]>([])
+  const globeRef = useRef<HTMLDivElement>(null)
+  const globeInstanceRef = useRef<any>(null)
+  const [events, setEvents] = useState<MigrationEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedPerson, setSelectedPerson] = useState<GlobePerson | null>(null)
-  const [view, setView] = useState<View>('globe')
-  const [cityInfo, setCityInfo] = useState<CityInfo | null>(null)
-  const [streetCoords, setStreetCoords] = useState<{ lat: number; lng: number } | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [playing, setPlaying] = useState(false)
-  const [playIndex, setPlayIndex] = useState(0)
-  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<MigrationEvent | null>(null)
+  const [activeYear, setActiveYear] = useState<number | null>(null)
+  const [globeReady, setGlobeReady] = useState(false)
 
-  // Load data from new tables
-  useEffect(() => {
-    async function init() {
-      const [{ data: ppl }, { data: stps }, { data: rts }] = await Promise.all([
-        supabase.from('globe_people').select('*').eq('visible', true).order('sort_order'),
-        supabase.from('globe_stops').select('*').eq('is_public', true).order('year'),
-        supabase.from('globe_routes').select('*'),
-      ])
-      setGlobePeople(ppl || [])
-      setStops(stps || [])
-      setRoutes(rts || [])
-      setLoading(false)
-    }
-    init()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
-  // Build points from stops (no geocoding needed — coordinates already in DB)
-  useEffect(() => {
-    if (loading) return
-    const personMap = new Map(globePeople.map(p => [p.id, p]))
-    const placeMap: Record<string, GeoPoint> = {}
-
-    for (const s of stops) {
-      if (!s.lat || !s.lng) continue
-      const person = personMap.get(s.globe_person_id)
-      if (!person) continue
-
-      const key = `${s.lat.toFixed(3)},${s.lng.toFixed(3)}`
-      if (!placeMap[key]) {
-        placeMap[key] = {
-          name: s.city || s.country || '',
-          lat: s.lat, lng: s.lng,
-          count: 0, people: [],
-        }
+  async function loadData() {
+    try {
+      const { data } = await supabase
+        .from('events')
+        .select(`id, event_date, description, event_type, location,
+                 people(first_name, last_name, photo_url)`)
+        .not('location', 'is', null)
+        .order('event_date')
+      if (data && data.length > 0) {
+        // Parse location strings like "lat,lng" or use geocoded data
+        const mapped = data.map((e: any) => {
+          const parts = (e.location || '').split(',').map(Number).filter(Boolean)
+          return {
+            id: e.id,
+            year: parseInt(e.event_date?.substring(0, 4) || '0'),
+            person_name: e.people ? [e.people.first_name, e.people.last_name].filter(Boolean).join(' ') : '',
+            to_lat: parts[0] || 32.0,
+            to_lng: parts[1] || 34.8,
+            to_place: e.location,
+            event_type: e.event_type,
+            description: e.description,
+          }
+        })
+        setEvents(mapped)
+      } else {
+        setEvents(DEMO_EVENTS)
       }
-      placeMap[key].count++
-      if (!placeMap[key].people.find(p => p.id === person.id as any)) {
-        placeMap[key].people.push({ id: person.id as any, name: person.name })
+    } catch { setEvents(DEMO_EVENTS) }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (loading || !globeRef.current) return
+    // Dynamically load globe.gl to avoid SSR issues
+    import('globe.gl').then(({ default: Globe }) => {
+      const el = globeRef.current
+      if (!el) return
+
+      const arcs = events.filter(e => e.from_lat && e.to_lat).map(e => ({
+        startLat: e.from_lat, startLng: e.from_lng,
+        endLat: e.to_lat, endLng: e.to_lng,
+        color: e.event_type === 'immigration' ? '#c9a227' : '#378ADD',
+        event: e,
+      }))
+
+      const points = events.map(e => ({
+        lat: e.to_lat || 32, lng: e.to_lng || 34.8,
+        size: 0.4, color: '#c9a227',
+        label: `${e.year} · ${e.person_name}`,
+        event: e,
+      }))
+
+      const globe = (Globe as any)()(el)
+        .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+        .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+        .width(el.offsetWidth || 500)
+        .height(el.offsetHeight || 400)
+        .arcsData(arcs)
+        .arcColor('color')
+        .arcDashLength(0.4)
+        .arcDashGap(0.2)
+        .arcDashAnimateTime(2000)
+        .arcStroke(1.5)
+        .pointsData(points)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointColor('color')
+        .pointAltitude('size')
+        .pointLabel('label')
+        .onPointClick((pt: any) => {
+          setSelectedEvent(pt.event)
+          setActiveYear(pt.event.year)
+        })
+        .onArcClick((arc: any) => {
+          setSelectedEvent(arc.event)
+          setActiveYear(arc.event.year)
+        })
+
+      // Initial view — center on Israel
+      globe.pointOfView({ lat: 32, lng: 34.8, altitude: 2.5 }, 1000)
+
+      globeInstanceRef.current = globe
+      setGlobeReady(true)
+    }).catch(console.error)
+
+    return () => {
+      if (globeInstanceRef.current) {
+        // cleanup
       }
     }
-    setPoints(Object.values(placeMap))
-  }, [loading, stops, globePeople])
+  }, [loading, events])
 
-  // Build arcs
-  const arcs: GeoArc[] = []
-  if (selectedPerson) {
-    const personStops = stops
-      .filter(s => s.globe_person_id === selectedPerson.id && s.lat && s.lng)
-      .sort((a, b) => (a.year || 0) - (b.year || 0))
-
-    for (let i = 0; i < personStops.length - 1; i++) {
-      const route = routes.find(r =>
-        r.from_stop_id === personStops[i].id && r.to_stop_id === personStops[i + 1].id
-      )
-      const travelType = route?.travel_type || 'default'
-      const colors = TRAVEL_COLORS[travelType] || TRAVEL_COLORS.default
-      arcs.push({
-        startLat: personStops[i].lat!, startLng: personStops[i].lng!,
-        endLat: personStops[i + 1].lat!, endLng: personStops[i + 1].lng!,
-        color: [selectedPerson.color + 'cc', colors[1]],
-      })
+  function focusEvent(e: MigrationEvent) {
+    setSelectedEvent(e)
+    setActiveYear(e.year)
+    if (globeInstanceRef.current && e.to_lat) {
+      globeInstanceRef.current.pointOfView({ lat: e.to_lat, lng: e.to_lng, altitude: 1.5 }, 1200)
     }
   }
 
-  const focusCoords = selectedPerson
-    ? (() => {
-        const firstStop = stops.find(s => s.globe_person_id === selectedPerson.id && s.lat && s.lng)
-        return firstStop ? { lat: firstStop.lat!, lng: firstStop.lng! } : null
-      })()
-    : null
-
-  // Journey Playback
-  const personStops = selectedPerson
-    ? stops.filter(s => s.globe_person_id === selectedPerson.id).sort((a, b) => (a.year || 0) - (b.year || 0))
-    : []
-
-  useEffect(() => {
-    if (!playing || personStops.length === 0) return
-    playTimerRef.current = setTimeout(() => {
-      const next = playIndex + 1
-      if (next >= personStops.length) { setPlaying(false); setPlayIndex(0) }
-      else setPlayIndex(next)
-    }, 3000)
-    return () => { if (playTimerRef.current) clearTimeout(playTimerRef.current) }
-  }, [playing, playIndex, personStops.length])
-
-  const handlePointClick = useCallback((point: GeoPoint) => {
-    setCityInfo({ lat: point.lat, lng: point.lng, name: point.name, people: point.people as any })
-    setView('city')
-  }, [])
-
-  const handleStreetView = useCallback((lat: number, lng: number) => {
-    setStreetCoords({ lat, lng }); setView('street')
-  }, [])
-
-  // Search filter
-  const filteredPeople = globePeople.filter(p => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return p.name.toLowerCase().includes(q)
-  })
-
-  const personStopCount = (personId: string) => stops.filter(s => s.globe_person_id === personId).length
+  const sortedYears = [...new Set(events.map(e => e.year))].sort()
 
   return (
-    <main dir="rtl" style={{
-      height: '100vh', background: 'radial-gradient(ellipse at 50% 0%, #0a0d1a, #030508)',
-      color: '#f5e6c8', fontFamily: '"Heebo", Arial, sans-serif',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    }}>
+    <main dir="rtl" style={{ minHeight: '100vh', background: '#080606', color: '#f0e8d0', fontFamily: '"Heebo", Arial, sans-serif' }}>
 
-      {/* Top bar */}
-      <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        style={{
-          background: 'linear-gradient(180deg, #0d0702ee, #0d0702cc)',
-          backdropFilter: 'blur(12px)', borderBottom: '1px solid #c9a22722',
-          padding: '0.5rem 1.5rem', display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', flexShrink: 0, zIndex: 20,
-        }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setView('globe')} style={{
-            background: view === 'globe' ? '#c9a22715' : 'none',
-            border: '1px solid transparent', borderRadius: 8,
-            padding: '4px 10px', color: view === 'globe' ? '#f5d98b' : '#8b6914',
-            cursor: 'pointer', fontSize: 13, fontWeight: view === 'globe' ? 600 : 400,
-          }}>✦ גלוב</button>
-          {(view === 'city' || view === 'street') && cityInfo && (
-            <>
-              <span style={{ color: '#3a2a10', fontSize: 11 }}>›</span>
-              <button onClick={() => setView('city')} style={{
-                background: view === 'city' ? '#c9a22715' : 'none',
-                border: 'none', borderRadius: 8, padding: '4px 10px',
-                color: view === 'city' ? '#f5d98b' : '#8b6914', cursor: 'pointer', fontSize: 13,
-              }}>{cityInfo.name}</button>
-            </>
-          )}
-          {view === 'street' && (
-            <>
-              <span style={{ color: '#3a2a10', fontSize: 11 }}>›</span>
-              <span style={{ color: '#f5d98b', fontSize: 13, fontWeight: 600 }}>רחוב</span>
-            </>
-          )}
+      {/* Header */}
+      <div style={{ background: 'rgba(8,6,6,0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(201,162,39,0.12)', padding: '0 2rem' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '1rem 0 0.75rem', borderBottom: '1px solid rgba(201,162,39,0.06)' }}>
+            <a href={`/${locale}`} style={{ color: '#3a2a10', fontSize: '0.82rem', textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#c9a227')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#3a2a10')}>← בית</a>
+            <span style={{ color: '#1a0f05' }}>·</span>
+            <span style={{ color: '#f5d98b', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="map" size={14} color="#f5d98b" /> מסע המשפחה</span>
+          </div>
         </div>
-        <span style={{ color: '#4ade80', fontSize: 11 }}>● {points.length} מקומות · {globePeople.length} אנשים</span>
-      </motion.div>
+      </div>
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
-        {/* Sidebar */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div initial={{ x: 240, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 240, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        {/* Timeline sidebar */}
+        <div style={{
+          width: 280, flexShrink: 0,
+          background: 'rgba(13,7,2,0.95)', borderLeft: '1px solid rgba(201,162,39,0.1)',
+          overflowY: 'auto', padding: '1.5rem 1rem',
+          display: 'flex', flexDirection: 'column', gap: '0.4rem',
+        }}>
+          <div style={{ fontSize: '0.65rem', color: '#c9a227', letterSpacing: '0.15em', marginBottom: '0.75rem' }}>✦ ציר נדידות</div>
+
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} style={{ fontSize: '1.5rem', color: '#c9a227' }}>✦</motion.div>
+            </div>
+          ) : events.map((e, i) => (
+            <motion.div key={e.id}
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+              onClick={() => focusEvent(e)}
               style={{
-                width: 260, minWidth: 260,
-                background: 'linear-gradient(180deg, #0d0702ee, #08050299)',
-                backdropFilter: 'blur(16px)', borderLeft: '1px solid #c9a22715',
-                overflowY: 'auto', flexShrink: 0, zIndex: 30,
-              }}>
-              <div style={{ padding: '1rem' }}>
-                {/* Search */}
-                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="חיפוש..." style={{
-                    width: '100%', boxSizing: 'border-box', background: '#1a0f0566',
-                    border: '1px solid #c9a22722', borderRadius: 10, padding: '8px 12px',
-                    color: '#f5e6c8', fontSize: 13, outline: 'none', marginBottom: 12,
-                    fontFamily: '"Heebo", sans-serif',
-                  }} />
-
-                {/* All button */}
-                <motion.button whileTap={{ scale: 0.97 }}
-                  onClick={() => { setSelectedPerson(null); setPlaying(false) }}
-                  style={{
-                    width: '100%', textAlign: 'right',
-                    background: !selectedPerson ? '#c9a22718' : 'transparent',
-                    color: !selectedPerson ? '#f5d98b' : '#8b6914',
-                    border: `1px solid ${!selectedPerson ? '#c9a22744' : 'transparent'}`,
-                    borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
-                    marginBottom: 6, fontSize: 13, fontFamily: '"Heebo", sans-serif',
-                  }}>כולם ({globePeople.length})</motion.button>
-
-                {loading && (
-                  <div style={{ color: '#5a3a1a', fontSize: 12, textAlign: 'center', padding: '2rem 0' }}>
-                    <motion.span animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>✦</motion.span> טוען...
-                  </div>
-                )}
-
-                {/* People list */}
-                {filteredPeople.map((p, i) => (
-                  <motion.button key={p.id}
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    onClick={() => { setSelectedPerson(p); setPlaying(false); setPlayIndex(0) }}
-                    style={{
-                      width: '100%', textAlign: 'right',
-                      background: selectedPerson?.id === p.id ? 'linear-gradient(135deg, #c9a22718, #c9a22708)' : 'transparent',
-                      color: selectedPerson?.id === p.id ? '#f5d98b' : '#b89a5a',
-                      border: `1px solid ${selectedPerson?.id === p.id ? '#c9a22744' : 'transparent'}`,
-                      borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
-                      marginBottom: 3, fontSize: 13, display: 'flex', flexDirection: 'column',
-                      alignItems: 'flex-start', fontFamily: '"Heebo", sans-serif', transition: 'all 0.15s',
-                    }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
-                      {p.name}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#5a3a1a' }}>{personStopCount(p.id)} תחנות</span>
-                  </motion.button>
-                ))}
-
-                {/* Stations for selected person */}
-                {selectedPerson && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                    style={{ marginTop: 12, borderTop: '1px solid #c9a22715', paddingTop: 12 }}>
-                    <div style={{
-                      fontSize: 11, color: '#c9a227', marginBottom: 8, fontWeight: 600,
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    }}>
-                      <span>✦ תחנות נדידה</span>
-                      {personStops.length > 1 && (
-                        <motion.button whileTap={{ scale: 0.9 }}
-                          onClick={() => { setPlaying(!playing); if (!playing) setPlayIndex(0) }}
-                          style={{
-                            background: playing ? '#c9a22733' : 'transparent',
-                            border: '1px solid #c9a22744', borderRadius: 6, padding: '3px 8px',
-                            color: '#c9a227', cursor: 'pointer', fontSize: 11, fontFamily: '"Heebo", sans-serif',
-                          }}>{playing ? '⏸ עצור' : '▶ נגן מסע'}</motion.button>
-                      )}
-                    </div>
-
-                    {personStops.map((s, i) => {
-                      const yearStr = s.year ? (s.is_bce ? `${Math.abs(s.year)} לפנה"ס` : `${s.year}`) : ''
-                      return (
-                        <motion.div key={s.id}
-                          initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0, scale: playing && playIndex === i ? 1.03 : 1 }}
-                          transition={{ delay: i * 0.05 }}
-                          style={{
-                            background: playing && playIndex === i ? 'linear-gradient(135deg, #c9a22722, #c9a22708)' : '#0d070266',
-                            border: `1px solid ${playing && playIndex === i ? '#c9a22766' : '#1a0f05'}`,
-                            borderRadius: 10, padding: '10px 12px', marginBottom: 6, fontSize: 12, transition: 'all 0.3s',
-                          }}>
-                          <div style={{ color: '#f5e6c8', fontWeight: 600, fontSize: 13, fontFamily: '"Playfair Display", serif' }}>
-                            {[s.city, s.country].filter(Boolean).join(', ')}
-                          </div>
-                          {yearStr && <div style={{ color: '#5a3a1a', fontSize: 11, marginTop: 2 }}>{yearStr}</div>}
-                          {s.note && <div style={{ color: '#8b6914', marginTop: 3, fontSize: 11, lineHeight: 1.5 }}>{s.note}</div>}
-                        </motion.div>
-                      )
-                    })}
-
-                    {personStops.length === 0 && (
-                      <div style={{ color: '#3a2a10', fontSize: 12 }}>אין תחנות.</div>
-                    )}
-                  </motion.div>
-                )}
+                background: activeYear === e.year ? 'rgba(201,162,39,0.1)' : 'rgba(26,15,5,0.5)',
+                border: `1px solid ${activeYear === e.year ? 'rgba(201,162,39,0.35)' : 'rgba(201,162,39,0.06)'}`,
+                borderRadius: 10, padding: '0.75rem 0.9rem', cursor: 'pointer',
+              }}
+              onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(201,162,39,0.07)')}
+              onMouseLeave={ev => (ev.currentTarget.style.background = activeYear === e.year ? 'rgba(201,162,39,0.1)' : 'rgba(26,15,5,0.5)')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f5d98b' }}>{e.person_name}</div>
+                <span style={{ fontSize: '0.7rem', color: '#c9a227', background: 'rgba(201,162,39,0.1)', borderRadius: 6, padding: '0.1rem 0.4rem' }}>{e.year}</span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#5a3a1a', marginTop: '0.2rem' }}>
+                {e.from_place && `${e.from_place} → `}{e.to_place}
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          ))}
+        </div>
 
-        {/* Toggle sidebar */}
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-          onClick={() => setSidebarOpen(o => !o)}
-          style={{
-            position: 'absolute', right: sidebarOpen ? 260 : 0, top: '50%', transform: 'translateY(-50%)',
-            background: 'linear-gradient(180deg, #1e140aee, #0d0702ee)', backdropFilter: 'blur(8px)',
-            border: '1px solid #c9a22733', borderRight: 'none', borderRadius: '8px 0 0 8px',
-            color: '#c9a227', cursor: 'pointer', padding: '12px 6px', zIndex: 35,
-            transition: 'right 0.3s', fontSize: 12, writingMode: 'vertical-rl',
-          }}>{sidebarOpen ? '◀' : '▶'}</motion.button>
+        {/* Globe */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div ref={globeRef} style={{ width: '100%', height: '100%' }} />
 
-        {/* Map area */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {/* Globe */}
-          <div style={{
-            position: 'absolute', inset: 0, display: view === 'globe' ? 'block' : 'none', zIndex: 1,
-          }}>
-            <GlobeView points={points} arcs={arcs} onPointClick={handlePointClick} focusCoords={focusCoords} />
-            {points.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
-                style={{
-                  position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-                  background: 'linear-gradient(180deg, #1e140aee, #0d0702ee)', backdropFilter: 'blur(12px)',
-                  border: '1px solid #c9a22722', borderRadius: 14, padding: '8px 20px',
-                  fontSize: 12, color: '#8b6914', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 5,
-                  fontFamily: '"Heebo", sans-serif', boxShadow: '0 4px 20px #0006',
-                }}>לחץ על נקודה לפרטים · בחר אדם לראות מסלול</motion.div>
-            )}
-          </div>
-
-          {/* City */}
-          {view === 'city' && cityInfo && (
-            <div style={{ position: 'absolute', inset: 0 }}>
-              <CityView lat={cityInfo.lat} lng={cityInfo.lng} placeName={cityInfo.name} onStreetView={handleStreetView}
-                stops={stops.filter(s => s.lat && s.lng && Math.abs(s.lat! - cityInfo.lat) < 1 && Math.abs(s.lng! - cityInfo.lng) < 1).map(s => ({
-                  lat: s.lat!, lng: s.lng!, city: s.city, country: s.country,
-                  year: s.year, personName: globePeople.find(p => p.id === s.globe_person_id)?.name || '',
-                  stop_type: s.stop_type, address: s.address,
-                }))} />
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                style={{
-                  position: 'absolute', top: 16, right: 16,
-                  background: 'linear-gradient(180deg, #1e140aee, #0d0702ee)',
-                  backdropFilter: 'blur(16px)', border: '1px solid #c9a22744',
-                  borderRadius: 16, padding: '16px 20px', minWidth: 200, maxHeight: '60vh',
-                  overflowY: 'auto', zIndex: 10, boxShadow: '0 8px 32px #000a',
-                }}>
-                <div style={{ fontWeight: 700, color: '#f5e6c8', marginBottom: 6, fontFamily: '"Playfair Display", serif', fontSize: 16 }}>{cityInfo.name}</div>
-                <div style={{ color: '#5a3a1a', fontSize: 11, marginBottom: 12 }}>לחץ במפה לזום לרחוב</div>
-                {cityInfo.people.map(p => (
-                  <a key={p.id} href={`/${locale}/people/${p.id}`} style={{
-                    display: 'block', color: '#b89a5a', textDecoration: 'none', padding: '4px 0', fontSize: 13,
-                    fontFamily: '"Heebo", sans-serif',
-                  }}>✦ {p.name}</a>
-                ))}
-              </motion.div>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView('globe')}
-                style={{
-                  position: 'absolute', bottom: 24, right: 24,
-                  background: '#1e140aee', border: '1px solid #c9a22744',
-                  color: '#c9a227', padding: '10px 18px', borderRadius: 10,
-                  cursor: 'pointer', fontSize: 13, zIndex: 10, fontFamily: '"Heebo", sans-serif', fontWeight: 600,
-                }}>← גלוב</motion.button>
+          {!globeReady && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}><Icon name="globe" size={48} color="#c9a227" /></motion.div>
+              <div style={{ color: '#3a2a10', fontSize: '0.85rem' }}>טוען גלובוס...</div>
             </div>
           )}
 
-          {/* Street */}
-          {view === 'street' && streetCoords && (
-            <div style={{ position: 'absolute', inset: 0 }}>
-              <StreetView lat={streetCoords.lat} lng={streetCoords.lng} />
-              <div style={{ position: 'absolute', bottom: 24, right: 24, display: 'flex', gap: 8, zIndex: 1000 }}>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView('city')}
-                  style={{ background: '#1e140aee', border: '1px solid #c9a22744', color: '#c9a227', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontFamily: '"Heebo", sans-serif' }}>← עיר</motion.button>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView('globe')}
-                  style={{ background: '#1e140aee', border: '1px solid #8b691444', color: '#8b6914', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontFamily: '"Heebo", sans-serif' }}>← גלוב</motion.button>
-              </div>
+          {/* Event popup */}
+          <AnimatePresence>
+            {selectedEvent && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                style={{
+                  position: 'absolute', bottom: 24, right: 24,
+                  background: 'rgba(13,7,2,0.95)', border: '1px solid rgba(201,162,39,0.25)',
+                  borderRadius: 14, padding: '1.25rem', maxWidth: 300,
+                  backdropFilter: 'blur(20px)',
+                }}
+              >
+                <button onClick={() => setSelectedEvent(null)}
+                  style={{ position: 'absolute', top: 8, left: 8, background: 'none', border: 'none', color: '#3a2a10', cursor: 'pointer', fontSize: '1rem' }}><Icon name="close" size={14} /></button>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.1rem', color: '#f5d98b', marginBottom: '0.5rem' }}>
+                  {selectedEvent.person_name}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#c9a227', marginBottom: '0.4rem' }}>{selectedEvent.year}</div>
+                {selectedEvent.from_place && (
+                  <div style={{ fontSize: '0.78rem', color: '#b89a5a' }}>
+                    <Icon name="location" size={13} color="#b89a5a" /> {selectedEvent.from_place} → {selectedEvent.to_place}
+                  </div>
+                )}
+                {selectedEvent.description && (
+                  <p style={{ fontSize: '0.78rem', color: '#8a6a3a', lineHeight: 1.6, marginTop: '0.5rem' }}>
+                    {selectedEvent.description}
+                  </p>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Year slider */}
+          {sortedYears.length > 0 && (
+            <div style={{
+              position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(13,7,2,0.9)', border: '1px solid rgba(201,162,39,0.15)',
+              borderRadius: 20, padding: '0.5rem 1.2rem',
+              display: 'flex', alignItems: 'center', gap: '1rem',
+            }}>
+              <span style={{ color: '#3a2a10', fontSize: '0.75rem' }}>
+                {sortedYears[0]}
+              </span>
+              <input type="range"
+                min={sortedYears[0]} max={sortedYears[sortedYears.length - 1]}
+                value={activeYear || sortedYears[0]}
+                onChange={e => {
+                  const y = parseInt(e.target.value)
+                  setActiveYear(y)
+                  const closest = events.reduce((prev, cur) => Math.abs(cur.year - y) < Math.abs(prev.year - y) ? cur : prev)
+                  if (closest && globeInstanceRef.current && closest.to_lat) {
+                    globeInstanceRef.current.pointOfView({ lat: closest.to_lat, lng: closest.to_lng, altitude: 1.5 }, 800)
+                    setSelectedEvent(closest)
+                  }
+                }}
+                style={{ width: 200, accentColor: '#c9a227' }}
+              />
+              <span style={{ color: '#c9a227', fontSize: '0.85rem', fontWeight: 600, minWidth: 36 }}>
+                {activeYear || sortedYears[0]}
+              </span>
             </div>
           )}
         </div>
       </div>
-    <FloatingEditButton editPath="migration-edit" />
     </main>
   )
 }

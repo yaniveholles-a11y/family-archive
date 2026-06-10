@@ -2,31 +2,20 @@
 import FloatingEditButton from '@/components/FloatingEditButton'
 import { useParams } from "next/navigation"
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 
 type Person = {
-  id: number
-  first_name: string
-  last_name: string
-  birth_place?: string
-  birth_date?: string
-  death_date?: string
-  bio?: string
-}
-
-type YadVashemResult = {
-  name: string
-  birthYear?: string
-  birthPlace?: string
-  link?: string
+  id: number; first_name: string; last_name: string
+  birth_place?: string; birth_date?: string; death_date?: string; bio?: string
 }
 
 const archives = [
-  { name: 'יד ושם', url: 'https://www.yadvashem.org/he/names.html', desc: 'מאגר שמות קורבנות השואה', icon: '✡️' },
-  { name: 'ארכיון אד-פרוגנס', url: 'https://www.arolsen-archives.org', desc: 'ארכיון גרמניה — רשימות ממחנות', icon: '📁' },
-  { name: 'JewishGen', url: 'https://www.jewishgen.org', desc: 'גנאלוגיה יהודית עולמית', icon: '🌍' },
-  { name: 'Family Search', url: 'https://www.familysearch.org', desc: 'רשומות היסטוריות בינלאומיות', icon: '🔍' },
-  { name: 'Ancestry', url: 'https://www.ancestry.com', desc: 'עצי משפחה ורשומות היסטוריות', icon: '🌳' },
+  { name: 'יד ושם', url: 'https://www.yadvashem.org/he/names.html', desc: 'מאגר שמות קורבנות השואה', icon: '✡️', color: '#c9a227' },
+  { name: 'ארכיון אד-פרוגנס', url: 'https://www.arolsen-archives.org', desc: 'ארכיון גרמניה — רשימות ממחנות', icon: '📁', color: '#9a6ab0' },
+  { name: 'JewishGen', url: 'https://www.jewishgen.org', desc: 'גנאלוגיה יהודית עולמית', icon: '🌍', color: '#4a9e6a' },
+  { name: 'Family Search', url: 'https://www.familysearch.org', desc: 'רשומות היסטוריות בינלאומיות', icon: '🔍', color: '#5a8ab0' },
+  { name: 'Ancestry', url: 'https://www.ancestry.com', desc: 'עצי משפחה ורשומות היסטוריות', icon: '🌳', color: '#4ab09a' },
 ]
 
 export default function HolocaustPage() {
@@ -35,7 +24,6 @@ export default function HolocaustPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [searching, setSearching] = useState<number | null>(null)
-  const [searchResults, setSearchResults] = useState<Record<number, YadVashemResult[]>>({})
   const [expandedPerson, setExpandedPerson] = useState<number | null>(null)
 
   useEffect(() => { load() }, [])
@@ -49,15 +37,13 @@ export default function HolocaustPage() {
     setLoading(false)
   }
 
-  async function searchYadVashem(person: Person) {
+  function searchYadVashem(person: Person) {
     setSearching(person.id)
-    const name = encodeURIComponent(`${[person.first_name, person.last_name].filter(Boolean).join(' ')}`)
-    // פתח חיפוש ביד ושם בחלון חדש
     window.open(`https://www.yadvashem.org/he/names.html#|language=he&s_id=&s_lastName=${encodeURIComponent(person.last_name)}&s_firstName=${encodeURIComponent(person.first_name)}`, '_blank')
     setSearching(null)
   }
 
-  async function searchJewishGen(person: Person) {
+  function searchJewishGen(person: Person) {
     window.open(`https://www.jewishgen.org/databases/GivenName/Given.php?Given1=${encodeURIComponent(person.first_name)}&Soundex=yes`, '_blank')
   }
 
@@ -69,127 +55,225 @@ export default function HolocaustPage() {
     : people
 
   return (
-    <main dir="rtl" style={{ minHeight: '100vh', background: '#0d0802', color: '#f5e6c8', fontFamily: 'Arial, sans-serif' }}>
+    <main dir="rtl" style={{ minHeight:'100vh', background:'var(--c-ink, #080606)', color:'var(--c-text, #f0e8d0)', fontFamily:'"Heebo", Arial, sans-serif' }}>
 
       {/* Header */}
-      <div style={{ background: '#080502', borderBottom: '1px solid #3a2a10', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <a href={`/${locale}/dashboard`} style={{ color: '#c9a227', textDecoration: 'none', fontSize: '0.9rem' }}>→ לוח בקרה</a>
-        <span style={{ color: '#f5d98b', fontWeight: 'bold' }}>✡️ מדור שואה וגנאלוגיה</span>
+      <div style={{
+        background: 'rgba(8,6,6,0.95)', backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(201,162,39,0.12)', padding: '0 2rem',
+      }}>
+        <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'1rem 0 0.75rem', borderBottom:'1px solid rgba(201,162,39,0.06)' }}>
+            <a href={`/${locale}/dashboard`} style={{ color:'#3a2a10', fontSize:'0.82rem', textDecoration:'none', transition:'color 0.2s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#c9a227')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#3a2a10')}>← לוח בקרה</a>
+            <span style={{ color:'#1a0f05' }}>·</span>
+            <span style={{ color:'#f5d98b', fontSize:'0.85rem' }}>✡️ זכרון ושורשים</span>
+          </div>
+        </div>
       </div>
 
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(180deg, #080502 0%, #0d0802 100%)', padding: '3rem 2rem', textAlign: 'center', borderBottom: '1px solid #1a1005' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🕯️</div>
-        <h1 style={{ fontSize: '2rem', color: '#f5d98b', marginBottom: '0.5rem' }}>זכרון ושורשים</h1>
-        <div style={{ width: '80px', height: '1px', background: '#c9a227', margin: '0 auto 1rem' }} />
-        <p style={{ color: '#8a6a3a', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto' }}>
+      <div style={{
+        padding: '3.5rem 2rem', textAlign:'center', position:'relative', overflow:'hidden',
+      }}>
+        <div style={{
+          position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+          width:400, height:400, borderRadius:'50%',
+          background:'radial-gradient(ellipse, rgba(201,162,39,0.04) 0%, transparent 70%)',
+          pointerEvents:'none',
+        }} />
+        <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }} transition={{ type:'spring', damping:15 }}
+          style={{ fontSize:'3rem', marginBottom:'1rem' }}>🕯️</motion.div>
+        <motion.h1
+          initial={{ opacity:0, y:15 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.15 }}
+          style={{ fontFamily:'"Playfair Display",serif', fontSize:'2.2rem', color:'#f5d98b', marginBottom:'0.5rem' }}
+        >זכרון ושורשים</motion.h1>
+        <motion.div
+          initial={{ scaleX:0 }} animate={{ scaleX:1 }} transition={{ delay:0.3 }}
+          style={{ width:80, height:1, background:'linear-gradient(90deg,transparent,#c9a227,transparent)', margin:'0 auto 1rem' }}
+        />
+        <motion.p
+          initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.4 }}
+          style={{ color:'#5a3a1a', fontSize:'0.9rem', maxWidth:500, margin:'0 auto' }}
+        >
           תיעוד בני משפחה, חיפוש בארכיונים וקישור למאגרי מידע היסטוריים
-        </p>
+        </motion.p>
       </div>
 
-      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth:980, margin:'0 auto', padding:'0 2rem 4rem' }}>
 
-        {/* ארכיונים */}
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h2 style={{ fontSize: '1.1rem', color: '#f5d98b', marginBottom: '1rem' }}>ארכיונים לחיפוש</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
-            {archives.map(a => (
-              <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer" style={{
-                background: '#1a1005', border: '1px solid #2a1a08', borderRadius: '10px',
-                padding: '1rem', textDecoration: 'none', color: 'inherit',
-                transition: 'border-color 0.2s',
-                display: 'flex', flexDirection: 'column', gap: '0.35rem',
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a227')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a1a08')}
+        {/* Archives */}
+        <div style={{ marginBottom:'2.5rem' }}>
+          <div style={{ fontSize:'0.7rem', color:'#3a2a10', letterSpacing:'0.1em', marginBottom:'1rem' }}>✦ ארכיונים לחיפוש</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(175px, 1fr))', gap:'0.75rem' }}>
+            {archives.map((a, i) => (
+              <motion.a
+                key={a.name}
+                href={a.url}
+                target="_blank" rel="noopener noreferrer"
+                initial={{ opacity:0, y:10 }}
+                animate={{ opacity:1, y:0 }}
+                transition={{ delay: i*0.07 }}
+                whileHover={{ y:-3 }}
+                style={{
+                  background:'rgba(26,15,5,0.7)',
+                  border:'1px solid rgba(201,162,39,0.08)',
+                  borderRadius:12, padding:'1rem',
+                  textDecoration:'none', color:'inherit',
+                  display:'flex', flexDirection:'column', gap:'0.4rem',
+                  transition:'border-color 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = a.color + '55')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(201,162,39,0.08)')}
               >
-                <span style={{ fontSize: '1.4rem' }}>{a.icon}</span>
-                <div style={{ fontWeight: 'bold', color: '#c9a227', fontSize: '0.88rem' }}>{a.name}</div>
-                <div style={{ fontSize: '0.75rem', color: '#7a5a2a' }}>{a.desc}</div>
-              </a>
+                <span style={{ fontSize:'1.5rem' }}>{a.icon}</span>
+                <div style={{ fontWeight:600, color: a.color, fontSize:'0.88rem' }}>{a.name}</div>
+                <div style={{ fontSize:'0.73rem', color:'#5a3a1a', lineHeight:1.5 }}>{a.desc}</div>
+              </motion.a>
             ))}
           </div>
         </div>
 
-        {/* חיפוש */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.1rem', color: '#f5d98b', marginBottom: '0.75rem' }}>חיפוש בני משפחה בארכיונים</h2>
-          <input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder="סנן לפי שם או מקום לידה..."
-            style={{ width: '100%', background: '#1a1005', border: '1px solid #2a1a08', borderRadius: '8px', padding: '0.7rem 1rem', color: '#f5e6c8', fontSize: '0.95rem', boxSizing: 'border-box' }}
-          />
+        {/* People search */}
+        <div style={{ marginBottom:'1.5rem' }}>
+          <div style={{ fontSize:'0.7rem', color:'#3a2a10', letterSpacing:'0.1em', marginBottom:'1rem' }}>
+            ✦ חיפוש בני משפחה בארכיונים
+          </div>
+          <div style={{ position:'relative' }}>
+            <span style={{ position:'absolute', right:'0.9rem', top:'50%', transform:'translateY(-50%)', color:'#3a2a10', pointerEvents:'none' }}>🔍</span>
+            <input
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="סנן לפי שם או מקום לידה..."
+              style={{
+                width:'100%', background:'rgba(26,15,5,0.7)',
+                border:'1px solid rgba(201,162,39,0.12)',
+                borderRadius:10, padding:'0.7rem 2.2rem 0.7rem 1rem',
+                color:'#f0e8d0', fontSize:'0.92rem',
+                boxSizing:'border-box', outline:'none', direction:'rtl',
+                fontFamily:'"Heebo",Arial,sans-serif', transition:'border-color 0.2s',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(201,162,39,0.4)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(201,162,39,0.12)')}
+            />
+          </div>
         </div>
 
-        {loading && <p style={{ color: '#8a6a3a', textAlign: 'center', padding: '2rem' }}>טוען...</p>}
+        {loading && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'3rem' }}>
+            <motion.div animate={{ rotate:360 }} transition={{ duration:2.5, repeat:Infinity, ease:'linear' }}
+              style={{ fontSize:32, color:'#c9a227' }}>✦</motion.div>
+          </div>
+        )}
 
-        {/* רשימת אנשים */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          {filtered.map(person => (
-            <div key={person.id} style={{ background: '#1a1005', border: '1px solid #2a1a08', borderRadius: '10px', overflow: 'hidden' }}>
+        {/* People list */}
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+          {filtered.map((person, i) => (
+            <motion.div
+              key={person.id}
+              initial={{ opacity:0, y:8 }}
+              animate={{ opacity:1, y:0 }}
+              transition={{ delay: Math.min(i*0.03, 0.4) }}
+              style={{
+                background:'rgba(26,15,5,0.7)',
+                border:'1px solid rgba(201,162,39,0.08)',
+                borderRadius:12, overflow:'hidden',
+                transition:'border-color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(201,162,39,0.25)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(201,162,39,0.08)')}
+            >
               <div
                 onClick={() => setExpandedPerson(expandedPerson === person.id ? null : person.id)}
-                style={{ padding: '0.9rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                style={{ padding:'0.9rem 1.25rem', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontSize: '1.1rem' }}>👤</span>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                  <div style={{
+                    width:36, height:36, borderRadius:'50%',
+                    background:'rgba(201,162,39,0.1)',
+                    border:'1px solid rgba(201,162,39,0.2)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:'1rem', flexShrink:0,
+                  }}>👤</div>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#f5d98b', fontSize: '0.95rem' }}>
-                      {[person.first_name, person.last_name].filter(Boolean).join(" ")}
+                    <div style={{ fontWeight:600, color:'#f5d98b', fontSize:'0.95rem' }}>
+                      {[person.first_name, person.last_name].filter(Boolean).join(' ')}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#7a5a2a' }}>
+                    <div style={{ fontSize:'0.73rem', color:'#3a2a10' }}>
                       {[
-                        person.birth_date && `נולד: ${person.birth_date.substring(0, 4)}`,
+                        person.birth_date && `נולד: ${person.birth_date.substring(0,4)}`,
                         person.birth_place && `מקום: ${person.birth_place}`,
-                        person.death_date && `נפטר: ${person.death_date.substring(0, 4)}`,
+                        person.death_date && `נפטר: ${person.death_date.substring(0,4)}`,
                       ].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                 </div>
-                <span style={{ color: '#c9a227', fontSize: '0.85rem' }}>{expandedPerson === person.id ? '▲' : '▼'}</span>
+                <motion.span
+                  animate={{ rotate: expandedPerson === person.id ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ color:'#c9a227', fontSize:'0.8rem' }}
+                >▼</motion.span>
               </div>
 
-              {expandedPerson === person.id && (
-                <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid #2a1a08' }}>
-                  <div style={{ paddingTop: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <a href={'/people/' + person.id} style={{ background: '#2a1a08', border: '1px solid #3a2a10', borderRadius: '6px', color: '#c9a227', padding: '0.4rem 0.9rem', textDecoration: 'none', fontSize: '0.82rem' }}>
-                      👤 פרופיל
-                    </a>
-                    <button
-                      onClick={() => searchYadVashem(person)}
-                      disabled={searching === person.id}
-                      style={{ background: '#1a2a10', border: '1px solid #3a5a20', borderRadius: '6px', color: '#7ada50', padding: '0.4rem 0.9rem', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'Arial' }}
-                    >
-                      {searching === person.id ? '⏳ מחפש...' : '✡️ חפש ביד ושם'}
-                    </button>
-                    <button
-                      onClick={() => searchJewishGen(person)}
-                      style={{ background: '#1a1a2a', border: '1px solid #2a2a5a', borderRadius: '6px', color: '#7a7ada', padding: '0.4rem 0.9rem', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'Arial' }}
-                    >
-                      🌍 חפש ב-JewishGen
-                    </button>
-                    <a
-                      href={`https://www.familysearch.org/search/record/results?q.givenName=${encodeURIComponent(person.first_name)}&q.surname=${encodeURIComponent(person.last_name)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ background: '#2a1a08', border: '1px solid #5a3a10', borderRadius: '6px', color: '#c9a227', padding: '0.4rem 0.9rem', textDecoration: 'none', fontSize: '0.82rem' }}
-                    >
-                      🔍 Family Search
-                    </a>
-                  </div>
-                  {person.bio && (
-                    <div style={{ marginTop: '0.75rem', fontSize: '0.82rem', color: '#8a6a3a', lineHeight: 1.5 }}>
-                      {person.bio}
+              <AnimatePresence>
+                {expandedPerson === person.id && (
+                  <motion.div
+                    initial={{ height:0, opacity:0 }}
+                    animate={{ height:'auto', opacity:1 }}
+                    exit={{ height:0, opacity:0 }}
+                    transition={{ duration:0.3 }}
+                    style={{ overflow:'hidden' }}
+                  >
+                    <div style={{ padding:'0 1.25rem 1.25rem', borderTop:'1px solid rgba(201,162,39,0.08)' }}>
+                      <div style={{ paddingTop:'1rem', display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                        <a href={`/${locale}/people/${person.id}`} style={{
+                          background:'rgba(201,162,39,0.1)', border:'1px solid rgba(201,162,39,0.2)',
+                          borderRadius:8, color:'#c9a227', padding:'0.4rem 0.9rem',
+                          textDecoration:'none', fontSize:'0.82rem',
+                        }}>👤 פרופיל</a>
+                        <button
+                          onClick={() => searchYadVashem(person)}
+                          disabled={searching === person.id}
+                          style={{
+                            background:'rgba(74,158,106,0.1)', border:'1px solid rgba(74,158,106,0.25)',
+                            borderRadius:8, color:'#4a9e6a', padding:'0.4rem 0.9rem',
+                            cursor:'pointer', fontSize:'0.82rem', fontFamily:'"Heebo",Arial,sans-serif',
+                          }}
+                        >{searching === person.id ? '⏳ מחפש...' : '✡️ חפש ביד ושם'}</button>
+                        <button
+                          onClick={() => searchJewishGen(person)}
+                          style={{
+                            background:'rgba(90,138,176,0.1)', border:'1px solid rgba(90,138,176,0.25)',
+                            borderRadius:8, color:'#5a8ab0', padding:'0.4rem 0.9rem',
+                            cursor:'pointer', fontSize:'0.82rem', fontFamily:'"Heebo",Arial,sans-serif',
+                          }}
+                        >🌍 JewishGen</button>
+                        <a
+                          href={`https://www.familysearch.org/search/record/results?q.givenName=${encodeURIComponent(person.first_name)}&q.surname=${encodeURIComponent(person.last_name)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{
+                            background:'rgba(184,154,90,0.1)', border:'1px solid rgba(184,154,90,0.2)',
+                            borderRadius:8, color:'#b89a5a', padding:'0.4rem 0.9rem',
+                            textDecoration:'none', fontSize:'0.82rem',
+                          }}
+                        >🔍 Family Search</a>
+                      </div>
+                      {person.bio && (
+                        <div style={{ marginTop:'0.75rem', fontSize:'0.82rem', color:'#5a3a1a', lineHeight:1.6 }}>
+                          {person.bio}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           ))}
         </div>
       </div>
-    <FloatingEditButton editPath="holocaust-edit" />
+
+      <FloatingEditButton editPath="holocaust-edit" />
     </main>
   )
 }

@@ -1,174 +1,228 @@
 'use client'
-import { useParams } from "next/navigation"
-import { useState, useEffect } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useRef, Suspense } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 
-type Result = { type: string; id: number; person_id?: number; title: string; sub?: string; href: string; icon: string }
-type PersonRaw = { id: number; first_name: string; last_name: string; birth_place?: string; bio?: string }
+type Result = {
+  id: number; title: string; subtitle: string; type: 'person' | 'document' | 'event'
+  url: string; score: number
+}
 
-export default function SearchPage() {
+const TYPE_COLORS = { person: '#378ADD', document: '#4a9e6a', event: '#9a6ab0' }
+const TYPE_LABELS = { person: 'אדם', document: 'מסמך', event: 'אירוע' }
+const TYPE_ICONS = { person: '👤', document: '📄', event: '📅' }
+
+function SearchInner() {
   const { locale } = useParams() as { locale: string }
-  const [query, setQuery] = useState('')
+  const searchParams = useSearchParams()
+  const initialQ = searchParams.get('q') || ''
+  const [query, setQuery] = useState(initialQ)
   const [results, setResults] = useState<Result[]>([])
-  const [allPeople, setAllPeople] = useState<PersonRaw[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-  const [activeTab, setActiveTab] = useState<'all' | 'people' | 'documents' | 'events'>('all')
-  const [authChecked, setAuthChecked] = useState(false)
-  const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'all' | 'person' | 'document' | 'event'>('all')
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    async function check() {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) { router.push('/login'); return }
-      // טען את כל האנשים לחיפוש חכם
-      const { data } = await supabase.from('people').select('id, first_name, last_name, birth_place, bio')
-      setAllPeople(data || [])
-      setAuthChecked(true)
-    }
-    check()
+  useEffect(() => { if (initialQ) run(initialQ) }, [])
+  useEffect(() => { inputRef.current?.focus() }, [])
 
-    // Ctrl+K / Cmd+K
-    function handler(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault()
-        document.getElementById('search-input')?.focus()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
+  async function run(q: string) {
+    if (!q.trim()) return
+    setLoading(true); setSearched(false)
+    const q2 = q.trim().toLowerCase()
+    const all: Result[] = []
 
-  function fuzyMatch(text: string, q: string): boolean {
-    const t = text.toLowerCase()
-    const words = q.toLowerCase().split(' ').filter(Boolean)
-    return words.every(w => t.includes(w))
-  }
-
-  async function search() {
-    if (!query.trim()) return
-    setLoading(true)
-    setSearched(true)
-
-    // חיפוש חכם עם fuzzy matching על אנשים
-    const matchedPeople = allPeople.filter(p => {
-      const fullName = p.first_name + ' ' + p.last_name
-      return fuzyMatch(fullName, query) ||
-        fuzyMatch(p.first_name, query) ||
-        fuzyMatch(p.last_name, query) ||
-        (p.birth_place && fuzyMatch(p.birth_place, query)) ||
-        (p.bio && fuzyMatch(p.bio, query))
-    })
-
-    const [{ data: documents }, { data: events }] = await Promise.all([
-      supabase.from('documents').select('*, person:person_id(first_name, last_name)').ilike('title', `%${query}%`),
-      supabase.from('timeline_events').select('*, person:person_id(first_name, last_name)').or(`title.ilike.%${query}%,description.ilike.%${query}%`),
+    const [{ data: people }, { data: events }, { data: docs }] = await Promise.all([
+      supabase.from('people').select('id, first_name, last_name, birth_date, birth_place').limit(50),
+      supabase.from('events').select('id, title, event_date, description').limit(50),
+      supabase.from('documents').select('id, title, doc_type, doc_date').limit(50),
     ])
 
-    const all: Result[] = []
-    for (const p of matchedPeople) {
-      all.push({ type: 'person', id: p.id, title: p.first_name + ' ' + p.last_name, sub: p.birth_place, href: '/people/' + p.id, icon: '👤' })
-    }
-    for (const d of documents || []) {
-      all.push({ type: 'document', id: d.id, person_id: d.person_id, title: d.title, sub: d.person ? d.person.first_name + ' ' + d.person.last_name : '', href: '/people/' + d.person_id + '/documents', icon: '📄' })
+    for (const p of people || []) {
+      const name = (p.first_name + ' ' + p.last_name).toLowerCase()
+      if (name.includes(q2) || (p.birth_place || '').toLowerCase().includes(q2)) {
+        all.push({
+          id: p.id, type: 'person',
+          title: [p.first_name, p.last_name].filter(Boolean).join(' '),
+          subtitle: [p.birth_date?.substring(0, 4), p.birth_place].filter(Boolean).join(' · ') || '',
+          url: `/${locale}/people/${p.id}`,
+          score: name.startsWith(q2) ? 2 : 1,
+        })
+      }
     }
     for (const e of events || []) {
-      all.push({ type: 'event', id: e.id, person_id: e.person_id, title: e.title, sub: e.person ? e.person.first_name + ' ' + e.person.last_name : '', href: '/people/' + e.person_id + '/timeline', icon: '📅' })
+      if ((e.title || '').toLowerCase().includes(q2) || (e.description || '').toLowerCase().includes(q2)) {
+        all.push({
+          id: e.id, type: 'event',
+          title: e.title || '',
+          subtitle: e.event_date?.substring(0, 4) || '',
+          url: `/${locale}/timeline`,
+          score: (e.title || '').toLowerCase().startsWith(q2) ? 2 : 1,
+        })
+      }
+    }
+    for (const d of docs || []) {
+      if ((d.title || '').toLowerCase().includes(q2) || (d.doc_type || '').toLowerCase().includes(q2)) {
+        all.push({
+          id: d.id, type: 'document',
+          title: d.title || '',
+          subtitle: [d.doc_type, d.doc_date?.substring(0, 4)].filter(Boolean).join(' · '),
+          url: `/${locale}/documents`,
+          score: (d.title || '').toLowerCase().startsWith(q2) ? 2 : 1,
+        })
+      }
     }
 
+    all.sort((a, b) => b.score - a.score)
     setResults(all)
     setLoading(false)
+    setSearched(true)
   }
 
-  if (!authChecked) return (
-    <main style={{ minHeight: '100vh', background: '#1c1008', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: '#b89a5a' }}>טוען...</p>
-    </main>
-  )
-
-  const filtered = activeTab === 'all' ? results : results.filter(r => {
-    if (activeTab === 'people') return r.type === 'person'
-    if (activeTab === 'documents') return r.type === 'document'
-    if (activeTab === 'events') return r.type === 'event'
-    return true
-  })
+  const filtered = activeTab === 'all' ? results : results.filter(r => r.type === activeTab)
+  const tabs: Array<'all' | 'person' | 'document' | 'event'> = ['all', 'person', 'document', 'event']
+  const tabLabels: Record<string, string> = { all: 'הכל', person: 'אנשים', document: 'מסמכים', event: 'אירועים' }
+  const counts: Record<string, number> = {
+    all: results.length,
+    person: results.filter(r => r.type === 'person').length,
+    document: results.filter(r => r.type === 'document').length,
+    event: results.filter(r => r.type === 'event').length,
+  }
 
   return (
-    <main dir="rtl" style={{ minHeight: '100vh', background: '#1c1008', color: '#f5e6c8', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ background: '#0d0702', borderBottom: '1px solid #8b6914', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <a href={`/${locale}/dashboard`} style={{ color: '#c9a227', textDecoration: 'none', fontSize: '0.9rem' }}>→ לוח בקרה</a>
-        <span style={{ color: '#f5d98b', fontWeight: 'bold' }}>חיפוש</span>
-        <span style={{ fontSize: '0.75rem', color: '#5a3a18', background: '#2a1a08', border: '1px solid #3a2a10', borderRadius: '6px', padding: '0.2rem 0.5rem' }}>Ctrl+K</span>
+    <main dir="rtl" style={{ minHeight: '100vh', background: '#080606', color: '#f0e8d0', fontFamily: '"Heebo", Arial, sans-serif' }}>
+
+      {/* Search hero */}
+      <div style={{ background: 'rgba(26,15,5,0.6)', borderBottom: '1px solid rgba(201,162,39,0.1)', padding: '2.5rem 2rem 2rem' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <motion.h1
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+            style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.8rem', color: '#f5d98b', marginBottom: '1.25rem', textAlign: 'center' }}
+          >חיפוש בארכיון</motion.h1>
+          <form onSubmit={e => { e.preventDefault(); run(query) }} style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#3a2a10', pointerEvents: 'none', fontSize: '1.1rem' }}>🔍</span>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="חפש אנשים, מסמכים, אירועים..."
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'rgba(13,7,2,0.85)', border: '1px solid rgba(201,162,39,0.25)',
+                borderRadius: '14px', padding: '0.9rem 2.8rem 0.9rem 1rem',
+                color: '#f0e8d0', fontSize: '1rem', fontFamily: '"Heebo", Arial, sans-serif',
+                outline: 'none', direction: 'rtl',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'rgba(201,162,39,0.55)')}
+              onBlur={e => (e.target.style.borderColor = 'rgba(201,162,39,0.25)')}
+            />
+            <motion.button type="submit"
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+              style={{
+                position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+                background: 'linear-gradient(135deg, #c9a227, #a68520)',
+                color: '#0d0702', border: 'none', borderRadius: '10px',
+                padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem',
+                fontFamily: '"Heebo", Arial, sans-serif',
+              }}
+            >חפש</motion.button>
+          </form>
+        </div>
       </div>
 
-      <div style={{ maxWidth: '700px', margin: '0 auto', padding: '2rem' }}>
-        <h1 style={{ fontSize: '1.8rem', color: '#f5d98b', marginBottom: '0.5rem' }}>חיפוש חכם</h1>
-        <div style={{ width: '80px', height: '1px', background: '#c9a227', marginBottom: '1.5rem' }} />
-
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <input
-            id="search-input"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && search()}
-            placeholder="חפש שם, מקום, מסמך... (Enter לחיפוש)"
-            style={{ flex: 1, background: '#2a1a08', border: '1px solid #3a2a10', borderRadius: '8px', padding: '0.7rem 1rem', color: '#f5e6c8', fontSize: '0.95rem' }}
-            autoFocus
-          />
-          <button
-            onClick={search}
-            style={{ background: '#c9a227', color: '#1a0f05', border: 'none', borderRadius: '8px', padding: '0.7rem 1.25rem', cursor: 'pointer', fontWeight: 'bold', fontFamily: 'Arial' }}
-          >
-            חפש
-          </button>
-        </div>
-
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '1.5rem 2rem' }}>
+        {/* Tabs */}
         {searched && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            {(['all', 'people', 'documents', 'events'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                background: activeTab === tab ? '#c9a227' : '#2a1a08',
-                color: activeTab === tab ? '#1a0f05' : '#b89a5a',
-                border: '1px solid #3a2a10', borderRadius: '20px',
-                padding: '0.35rem 0.9rem', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'Arial'
-              }}>
-                {tab === 'all' ? `הכל (${results.length})` : tab === 'people' ? `אנשים (${results.filter(r => r.type === 'person').length})` : tab === 'documents' ? `מסמכים (${results.filter(r => r.type === 'document').length})` : `אירועים (${results.filter(r => r.type === 'event').length})`}
-              </button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            {tabs.map(t => (
+              <button key={t} onClick={() => setActiveTab(t)}
+                style={{
+                  background: activeTab === t ? 'rgba(201,162,39,0.12)' : 'transparent',
+                  color: activeTab === t ? '#f5d98b' : '#5a3a1a',
+                  border: `1px solid ${activeTab === t ? 'rgba(201,162,39,0.35)' : 'rgba(201,162,39,0.08)'}`,
+                  borderRadius: '20px', padding: '0.35rem 1rem',
+                  cursor: 'pointer', fontSize: '0.82rem',
+                  fontFamily: '"Heebo", Arial, sans-serif', transition: 'all 0.2s',
+                }}
+              >{tabLabels[t]} {counts[t] > 0 && <span style={{ opacity: 0.6 }}>({counts[t]})</span>}</button>
             ))}
+          </motion.div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+              style={{ fontSize: '2rem', color: '#c9a227' }}>✦</motion.div>
           </div>
         )}
 
-        {loading && <p style={{ color: '#b89a5a', textAlign: 'center', padding: '2rem' }}>מחפש...</p>}
-        {searched && !loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#b89a5a' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🔍</div>
-            <p>לא נמצאו תוצאות עבור "{query}"</p>
-            <p style={{ fontSize: '0.85rem', color: '#5a3a18', marginTop: '0.5rem' }}>נסה מילה אחרת או חלק מהשם</p>
-          </div>
-        )}
+        {/* Results */}
+        <AnimatePresence mode="wait">
+          {searched && !loading && (
+            <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '4rem', color: '#3a2a10' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+                  <div>לא נמצאו תוצאות עבור "{query}"</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {filtered.map((r, i) => (
+                    <motion.a
+                      key={`${r.type}-${r.id}`}
+                      href={r.url}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      whileHover={{ x: -4 }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '1rem',
+                        background: 'rgba(26,15,5,0.7)', border: '1px solid rgba(201,162,39,0.08)',
+                        borderRight: `3px solid ${TYPE_COLORS[r.type]}`,
+                        borderRadius: '10px', padding: '0.85rem 1.1rem',
+                        textDecoration: 'none', color: 'inherit', transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(26,15,5,0.95)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(26,15,5,0.7)')}
+                    >
+                      <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{TYPE_ICONS[r.type]}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: '#f5d98b', fontSize: '0.95rem' }}>{r.title}</div>
+                        {r.subtitle && <div style={{ fontSize: '0.78rem', color: '#3a2a10', marginTop: '0.2rem' }}>{r.subtitle}</div>}
+                      </div>
+                      <span style={{
+                        fontSize: '0.7rem', color: TYPE_COLORS[r.type],
+                        background: TYPE_COLORS[r.type] + '15',
+                        border: `1px solid ${TYPE_COLORS[r.type]}30`,
+                        borderRadius: '6px', padding: '0.2rem 0.5rem', flexShrink: 0,
+                      }}>{TYPE_LABELS[r.type]}</span>
+                    </motion.a>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filtered.map((r, i) => (
-            <a
-              key={i}
-              href={r.href}
-              style={{ background: '#2a1a08', border: '1px solid #3a2a10', borderRadius: '10px', padding: '1rem 1.25rem', textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'border-color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#c9a227')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '#3a2a10')}
-            >
-              <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{r.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: '#f5d98b' }}>{r.title}</div>
-                {r.sub && <div style={{ fontSize: '0.82rem', color: '#b89a5a', marginTop: '2px' }}>{r.sub}</div>}
-              </div>
-              <span style={{ fontSize: '0.75rem', color: '#5a3a18', background: '#1a0f05', borderRadius: '4px', padding: '0.15rem 0.4rem' }}>
-                {r.type === 'person' ? 'אדם' : r.type === 'document' ? 'מסמך' : 'אירוע'}
-              </span>
-            </a>
-          ))}
-        </div>
+        {!searched && !loading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.3 } }}
+            style={{ textAlign: 'center', padding: '5rem 2rem', color: '#3a2a10' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔎</div>
+            <div style={{ fontSize: '0.9rem' }}>הקלד שם אדם, שנה, מקום או מילת מפתח</div>
+          </motion.div>
+        )}
       </div>
     </main>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#080606' }} />}>
+      <SearchInner />
+    </Suspense>
   )
 }

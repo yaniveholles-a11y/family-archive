@@ -1,28 +1,30 @@
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
+import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
-import RouteWrapper from '@/components/RouteWrapper'
-import GlobalSearch from '@/components/GlobalSearch'
-import BackToTop from '@/components/BackToTop'
-import KeyboardShortcuts from '@/components/KeyboardShortcuts'
+import GSAPProvider from '@/components/GSAPProvider'
+
+const locales = ['he', 'en', 'nl', 'de']
 
 export default async function LocaleLayout({
   children,
   params,
 }: {
   children: React.ReactNode
-  params: any
+  params: Promise<{ locale: string }>
 }) {
   const { locale } = await params
-  const messages = await getMessages()
+  if (!locales.includes(locale)) notFound()
+
+  let messages
+  try { messages = await getMessages() } catch { messages = {} }
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      <Navbar />
-      <RouteWrapper>{children}</RouteWrapper>
-      <GlobalSearch />
-      <BackToTop />
-      <KeyboardShortcuts />
+    <NextIntlClientProvider messages={messages} locale={locale}>
+      <GSAPProvider>
+        <Navbar />
+        {children}
+      </GSAPProvider>
     </NextIntlClientProvider>
   )
 }

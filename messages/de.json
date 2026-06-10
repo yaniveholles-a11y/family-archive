@@ -3,14 +3,29 @@
     "home": "Startseite",
     "families": "Familien",
     "people": "Personen",
+    "tree": "Stammbaum",
+    "map": "Reisen",
+    "timeline": "Zeitstrahl",
+    "gallery": "Galerie",
+    "stories": "Geschichten",
+    "calendar": "Kalender",
+    "feed": "Erinnerungen",
+    "ai": "KI-Assistent",
+    "book": "Buch",
+    "documents": "Dokumente",
     "search": "Suche",
-    "login": "Anmelden"
+    "login": "Anmelden",
+    "more": "Mehr"
   },
   "home": {
     "title": "Familienarchiv",
     "subtitle": "Erinnerungen für zukünftige Generationen bewahren",
     "selectFamily": "Familie auswählen",
-    "enter": "Eintreten"
+    "enter": "Eintreten",
+    "stats_families": "Familien",
+    "stats_people": "Familienmitglieder",
+    "stats_photos": "Fotos",
+    "stats_stories": "Geschichten"
   },
   "common": {
     "save": "Speichern",
@@ -19,6 +34,107 @@
     "delete": "Löschen",
     "add": "Hinzufügen",
     "back": "Zurück",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "search": "Suchen",
+    "close": "Schließen",
+    "open": "Öffnen",
+    "upload": "Hochladen",
+    "download": "Herunterladen",
+    "share": "Teilen",
+    "print": "Drucken"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "join": "Zugang beantragen",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "continue_google": "Mit Google fortfahren",
+    "or_email": "oder mit E-Mail",
+    "wrong_credentials": "Ungültige E-Mail oder Passwort",
+    "join_sent": "Anfrage gesendet!",
+    "join_pending": "Der Administrator prüft Ihre Anfrage"
+  },
+  "people": {
+    "title": "Familienmitglieder",
+    "add": "Person hinzufügen",
+    "born": "Geboren",
+    "died": "Gestorben",
+    "age": "Alter",
+    "family": "Familie",
+    "biography": "Biografie"
+  },
+  "timeline": {
+    "title": "Zeitstrahl",
+    "filter": "Filtern",
+    "all": "Alle",
+    "birth": "Geburt",
+    "death": "Tod",
+    "marriage": "Hochzeit",
+    "immigration": "Einwanderung",
+    "event": "Ereignis",
+    "historical_context": "Historischer Kontext"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "colorize": "Kolorieren",
+    "before": "Vorher",
+    "after": "Nachher",
+    "upload": "Foto hochladen",
+    "no_photos": "Noch keine Fotos"
+  },
+  "documents": {
+    "title": "Dokumente",
+    "scan": "Dokument scannen",
+    "ocr": "Texterkennung",
+    "birth_certificate": "Geburtsurkunde",
+    "death_certificate": "Sterbeurkunde",
+    "marriage_certificate": "Heiratsurkunde",
+    "passport": "Reisepass",
+    "letter": "Brief",
+    "photo": "Foto",
+    "other": "Sonstiges"
+  },
+  "calendar": {
+    "title": "Kalender",
+    "yahrzeit": "Jahrzeit",
+    "birthday": "Geburtstag",
+    "anniversary": "Jahrestag",
+    "upcoming": "Nächste 30 Tage",
+    "hebrew_date": "Hebräisches Datum",
+    "view_month": "Monat",
+    "view_list": "Liste"
+  },
+  "feed": {
+    "title": "Geteilte Erinnerungen",
+    "post": "Veröffentlichen",
+    "no_memories": "Noch keine Erinnerungen",
+    "share_memory": "Erinnerung teilen...",
+    "reactions": "Reaktionen"
+  },
+  "ai": {
+    "title": "Familien KI-Assistent",
+    "placeholder": "Fragen Sie über die Familie...",
+    "send": "Senden",
+    "thinking": "Denkt nach..."
+  },
+  "map": {
+    "title": "Familienreise",
+    "migration_trail": "Migrationsweg",
+    "loading": "Globus wird geladen..."
+  },
+  "pdf": {
+    "title": "Familienbuch exportieren",
+    "select_people": "Familienmitglieder auswählen",
+    "generate": "PDF erstellen",
+    "generating": "Erstelle...",
+    "download": "PDF herunterladen"
+  },
+  "offline": {
+    "title": "Keine Internetverbindung",
+    "message": "Sie scheinen offline zu sein. Einige Inhalte sind möglicherweise noch verfügbar.",
+    "retry": "Erneut versuchen"
   }
 }
